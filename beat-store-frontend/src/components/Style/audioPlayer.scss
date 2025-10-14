@@ -1,0 +1,373 @@
+.audio-player {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 1280px;
+  background: rgba(20, 20, 20, 0.5);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 100px;
+  padding: 12px 24px 12px 12px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: fixed;
+  /* 
+    Centering horizontally requires:
+    - left: 50% (not right: 50%)
+    - transform: translateX(-50%)
+    For vertical centering within a parent, use top: 50% and transform: translateY(-50%),
+    but here we want it fixed to the bottom, so bottom: 132px is correct.
+    align-items: center; ensures vertical alignment of children within the flex container.
+  */
+  transform: translateX(-50%);
+
+  // Hover effect
+  &:hover {
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+
+  // Beat Info Section
+  .beat-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 180px;
+
+    .cover-art {
+      width: 64px;
+      height: 64px;
+      border-radius: 100px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s ease;
+
+      &:hover {
+        transform: scale(1.05);
+      }
+    }
+
+    .beat-details {
+      min-width: 0;
+
+      .beat-name {
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 18px;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-bottom: 6px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      }
+
+      .beat-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 4px;
+
+        .genre-chip {
+          background-color: var(--genre-color, #666);
+          color: #ffffff;
+          font-size: 11px;
+          height: 20px;
+          border-radius: 10px;
+          padding: 0 8px;
+          font-weight: 500;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .beat-stats {
+          color: rgba(255, 255, 255, 0.7);
+          font-size: 12px;
+          font-weight: 400;
+        }
+      }
+    }
+  }
+
+  // Playback Controls
+  .playback-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .control-btn {
+      color: rgba(255, 255, 255, 0.8);
+      transition: all 0.2s ease;
+      border-radius: 50%;
+
+      &:hover {
+        color: #ffffff;
+        background-color: rgba(255, 255, 255, 0.1);
+        transform: scale(1.1);
+      }
+
+      &.play-pause-btn {
+        background: linear-gradient(135deg, #1db954 0%, #1ed760 100%);
+        color: #ffffff;
+        width: 56px;
+        height: 56px;
+        box-shadow:
+          0 4px 16px rgba(29, 185, 84, 0.4),
+          0 0 0 1px rgba(29, 185, 84, 0.2);
+
+        &:hover {
+          background: linear-gradient(135deg, #1ed760 0%, #1db954 100%);
+          transform: scale(1.05);
+          box-shadow:
+            0 6px 20px rgba(29, 185, 84, 0.5),
+            0 0 0 1px rgba(29, 185, 84, 0.3);
+        }
+
+        .play-icon,
+        .pause-icon {
+          font-size: 24px;
+        }
+      }
+
+      .skip-icon {
+        font-size: 28px;
+      }
+    }
+  }
+
+  // Progress Bar
+  .progress-section {
+    flex: 1;
+
+    .progress-container {
+      width: 100%;
+      margin-top: 4px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+      margin-bottom: 8px;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.1) 0%,
+          rgba(255, 255, 255, 0.05) 100%
+        );
+        border-radius: 3px;
+      }
+
+      .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #1db954 0%, #1ed760 100%);
+        border-radius: 3px;
+        transition: width 0.1s ease;
+        position: relative;
+        box-shadow: 0 0 8px rgba(29, 185, 84, 0.4);
+
+        &::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 12px;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.3) 50%,
+            transparent 100%
+          );
+          border-radius: 50%;
+        }
+      }
+    }
+
+    .progress-time {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 11px;
+      font-weight: 500;
+      text-align: center;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  // Responsive Design
+  @media (max-width: 768px) {
+    bottom: 16px;
+    width: 95%;
+    padding: 16px 20px;
+    gap: 16px;
+
+    .beat-info {
+      gap: 12px;
+
+      .cover-art {
+        width: 48px;
+        height: 48px;
+      }
+
+      .beat-details {
+        .beat-name {
+          font-size: 16px;
+        }
+
+        .beat-meta {
+          .genre-chip {
+            font-size: 10px;
+            height: 18px;
+          }
+
+          .beat-stats {
+            font-size: 11px;
+          }
+        }
+      }
+    }
+
+    .playback-controls {
+      gap: 6px;
+
+      .control-btn {
+        &.play-pause-btn {
+          width: 48px;
+          height: 48px;
+
+          .play-icon,
+          .pause-icon {
+            font-size: 20px;
+          }
+        }
+
+        .skip-icon {
+          font-size: 24px;
+        }
+      }
+    }
+
+    .progress-section {
+      max-width: 200px;
+
+      .progress-container {
+        height: 4px;
+      }
+    }
+  }
+
+  @media (max-width: 480px) {
+    bottom: 12px;
+    width: 98%;
+    padding: 14px 16px;
+    gap: 12px;
+    border-radius: 20px;
+
+    .beat-info {
+      .cover-art {
+        width: 40px;
+        height: 40px;
+      }
+
+      .beat-details {
+        .beat-name {
+          font-size: 14px;
+        }
+      }
+    }
+
+    .playback-controls {
+      .control-btn {
+        &.play-pause-btn {
+          width: 44px;
+          height: 44px;
+
+          .play-icon,
+          .pause-icon {
+            font-size: 18px;
+          }
+        }
+      }
+    }
+
+    .progress-section {
+      max-width: 150px;
+    }
+  }
+}
+
+// Animation for when player appears
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.audio-player {
+  animation: slideUpFade 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// Glass morphism enhancement for different themes
+@media (prefers-color-scheme: light) {
+  .audio-player {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.1),
+      0 0 0 1px rgba(0, 0, 0, 0.05),
+      inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+    .beat-info {
+      .beat-details {
+        .beat-name {
+          color: #1a1a1a;
+          text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+        }
+
+        .beat-meta {
+          .beat-stats {
+            color: rgba(0, 0, 0, 0.6);
+          }
+        }
+      }
+    }
+
+    .playback-controls {
+      .control-btn {
+        color: rgba(0, 0, 0, 0.7);
+
+        &:hover {
+          color: #000000;
+          background-color: rgba(0, 0, 0, 0.1);
+        }
+      }
+    }
+
+    .progress-section {
+      .progress-time {
+        color: rgba(0, 0, 0, 0.5);
+        text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+      }
+    }
+  }
+}

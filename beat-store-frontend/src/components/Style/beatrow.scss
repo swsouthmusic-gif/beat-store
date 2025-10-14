@@ -1,0 +1,111 @@
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translate(12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0px, 0);
+  }
+}
+
+.beat-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  transition: all ease-in-out 0.2s ease;
+  background-color: transparent;
+  border-radius: 100px;
+  cursor: pointer;
+  &:hover {
+    background-color: var(--beat-palette-background-paper);
+    .beat-row-actions {
+      animation: fadeInSlide 0.5s ease-out forwards;
+    }
+  }
+
+  .cover-art {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 100px;
+  }
+
+  .info {
+    display: flex;
+    flex-direction: column;
+    max-width: 124px;
+    min-width: 0; // Allow text to wrap properly
+    .beat-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .meta-info {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 6px;
+      padding-top: 4px;
+      .chip {
+        font-size: 10px;
+      }
+    }
+  }
+
+  .genre-chip {
+    font-size: 12px;
+    font-weight: 500;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 16px;
+    display: inline-block;
+    margin-top: 4px;
+    height: 60px;
+    width: 60px;
+  }
+
+  .beat-meta {
+    font-size: 14px;
+    color: var(--mui-palette-text-secondary);
+  }
+  .beat-row-actions {
+    opacity: 0;
+    transform: translate(12px, 0);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    .download-icon {
+      opacity: 0.4;
+      font-size: 28px;
+      transition: all ease-in-out 0.3s;
+      margin-top: 5px;
+      &:hover {
+        opacity: 1;
+      }
+    }
+    .play-btn {
+      background-color: #ffc300;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 100px;
+      z-index: 10;
+      box-shadow: 1px 4px 4px rgba(0, 0, 0, 0.2);
+      transition: all ease-in-out 0.3s;
+      position: relative;
+      z-index: 10;
+      &:hover {
+        background-color: #ffdb29;
+      }
+    }
+  }
+  .waveform {
+    flex-grow: 1; // Occupy remaining space
+    min-width: 0; // Allow shrinking if needed
+  }
+}

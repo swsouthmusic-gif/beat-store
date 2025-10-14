@@ -1,0 +1,32 @@
+.layout {
+  .navbar {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+    padding-top: 12px;
+    .profile-btn {
+      .avatar {
+        width: 32px;
+        height: 32px;
+      }
+    }
+  }
+}
+
+.avatar-menu {
+  .avatar-menu-item {
+    &:hover {
+      .icon {
+        opacity: 1;
+      }
+    }
+    .icon {
+      margin-right: 12px;
+      opacity: 0.6;
+      transition: all ease-in-out 0.2s;
+    }
+    p {
+      font-size: 14px;
+    }
+  }
+}

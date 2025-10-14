@@ -1,0 +1,123 @@
+// auth-modal.scss
+
+.auth-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90vw;
+
+  @media (min-width: 600px) {
+    width: 400px;
+  }
+
+  max-height: 90vh;
+  overflow: auto;
+  background-color: rgba(15, 15, 15, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+  padding: 1rem; // p: 4 -> 32px; adjust as you prefer
+}
+
+.auth-title {
+  color: #fff;
+  font-weight: 600;
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.auth-subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 3rem;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.auth-social-button {
+  width: 100%;
+  padding: 0.75rem 0; // py: 1.5
+  border-radius: 12px;
+  text-transform: none;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(255, 255, 255, 0.04);
+  color: #fff;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  &:disabled {
+    background-color: rgba(255, 255, 255, 0.02);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.auth-field {
+  .MuiOutlinedInput-root {
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.2s ease;
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    &.Mui-focused {
+      border-color: rgba(255, 255, 255, 0.3);
+      background-color: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+    }
+
+    input {
+      color: #fff;
+      font-size: 0.875rem;
+      padding: 1.5rem 2rem;
+    }
+  }
+
+  .MuiInputLabel-root {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.875rem;
+  }
+}
+
+.auth-primary-button {
+  width: 100%;
+  padding: 0.75rem 0; // py: 1.5
+  border-radius: 12px;
+  text-transform: none;
+  font-weight: 600;
+  font-size: 0.875rem;
+  background-color: #fff;
+  color: #000;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.9);
+  }
+
+  &:disabled {
+    background-color: rgba(255, 255, 255, 0.3);
+    color: rgba(0, 0, 0, 0.5);
+  }
+}
+
+.auth-link-button {
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+  padding: 0;
+  min-width: 0;
+
+  &:hover {
+    color: #fff;
+    background-color: transparent;
+  }
+}

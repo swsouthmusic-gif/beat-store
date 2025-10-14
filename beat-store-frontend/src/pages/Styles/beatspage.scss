@@ -1,0 +1,10 @@
+.beats-container {
+  padding: 8px;
+  // background-color: var(--beat-palette-background-container);
+  border-radius: 20px;
+  height: calc(100vh - 160px);
+  .chip {
+    color: var(--beat-palette-common-white);
+    font-size: 12px;
+  }
+}

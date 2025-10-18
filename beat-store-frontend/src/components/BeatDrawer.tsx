@@ -221,10 +221,6 @@ const BeatDrawer = ({
     onClose();
   };
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
-
   const playButton = (
     <IconButton className="play-btn" onClick={handlePlayPause}>
       {isCurrent && isPlaying ? (

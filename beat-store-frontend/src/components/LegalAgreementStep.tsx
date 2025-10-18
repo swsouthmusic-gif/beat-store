@@ -24,7 +24,6 @@ interface LegalAgreementStepProps {
 const LegalAgreementStep = ({
   agreed,
   setAgreed,
-  onCancel,
   beat,
   selectedDownloadType,
   selectedLicense,

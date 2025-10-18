@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Box, Typography, Button, Chip, Divider, Alert } from '@mui/material';
-import { ArrowBackRounded, Security, Download } from '@mui/icons-material';
+import { ArrowBackRounded, Download } from '@mui/icons-material';
 import { genreColors } from '@/constants/genreColors';
 import { levelLabelMap, levelColorMap, iconTypeMap } from '@/constants/licenseMaps';
 import { useDownloadBeatMutation } from '@/store/beatApi';
@@ -31,7 +31,6 @@ interface CheckoutStepProps {
 
 const CheckoutStep = ({
   onBack,
-  onComplete,
   beat,
   selectedDownloadType,
   selectedLicense,

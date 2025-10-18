@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, CircularProgress, Fade } from '@mui/material';
-import { Download, MusicNote } from '@mui/icons-material';
+import { Download } from '@mui/icons-material';
 import { keyframes } from '@mui/system';
 
 // Animated pulse for the download icon

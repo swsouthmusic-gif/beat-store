@@ -52,7 +52,11 @@ const Navbar = ({ onLogout, onSignin }: NavbarProps) => {
         </Typography>
 
         <IconButton onClick={handleMenuOpen} className="profile-btn">
-          <Avatar className="avatar" alt="User Avatar" src={userProfile?.avatar || undefined} />
+          <Avatar
+            className="avatar"
+            alt="User Avatar"
+            src={typeof userProfile?.avatar === 'string' ? userProfile.avatar : undefined}
+          />
         </IconButton>
 
         <Menu

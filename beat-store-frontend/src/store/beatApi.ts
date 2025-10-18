@@ -22,6 +22,17 @@ const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
     localStorage.removeItem('userProfile');
   }
 
+  // If we get a 404 or network error, show a more user-friendly message
+  if (result.error && (result.error.status === 404 || result.error.status === 'FETCH_ERROR')) {
+    return {
+      ...result,
+      error: {
+        ...result.error,
+        data: 'Backend service is not available. Please check if the server is running.',
+      },
+    };
+  }
+
   return result;
 };
 

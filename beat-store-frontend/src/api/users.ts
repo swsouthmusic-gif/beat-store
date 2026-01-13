@@ -1,5 +1,6 @@
 // /api/users.ts
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export interface UserProfile {
   id: number;
@@ -10,6 +11,7 @@ export interface UserProfile {
   profile: {
     photo: string | null;
     bio: string;
+    middle_initial: string | null;
     created_at: string;
     updated_at: string;
   };
@@ -23,6 +25,7 @@ export interface UpdateProfileData {
   profile?: {
     photo?: File | string | null;
     bio?: string;
+    middle_initial?: string | null;
   };
 }
 
@@ -65,6 +68,10 @@ class UserAPI {
       if (profileData.profile) {
         if (profileData.profile.bio !== undefined) {
           formData.append('profile.bio', profileData.profile.bio);
+        }
+
+        if (profileData.profile.middle_initial !== undefined) {
+          formData.append('profile.middle_initial', profileData.profile.middle_initial || '');
         }
 
         // Handle photo upload

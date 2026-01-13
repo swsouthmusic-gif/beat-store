@@ -28,6 +28,7 @@ interface StripePaymentFormProps {
   onPaymentError: (error: string) => void;
   onClientSecretChange?: (clientSecret: string | null) => void;
   clientSecret?: string | null;
+  shouldCreateIntent?: boolean; // Prevent auto-creation if false
 }
 
 const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
@@ -38,6 +39,7 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
   onPaymentError,
   onClientSecretChange,
   clientSecret,
+  shouldCreateIntent = true,
 }) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -51,13 +53,99 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
   );
   const [hasConfirmedPayment, setHasConfirmedPayment] = useState(false);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const hasAttemptedCreation = React.useRef(false);
+  const creationKeyRef = React.useRef<string>('');
 
-  // Auto-create payment intent when component mounts
+  // Create a stable key to track when we should reset the creation attempt
+  const currentKey = `${beat.id}-${selectedDownloadType}-${selectedLicense.price}`;
+
+  // Reset creation attempt if the key changes (beat, download type, or price changed)
   React.useEffect(() => {
-    if (!clientSecret && !isCreatingIntent) {
-      handleCreatePaymentIntent();
+    if (creationKeyRef.current !== currentKey) {
+      hasAttemptedCreation.current = false;
+      creationKeyRef.current = currentKey;
+      // Also reset clientSecret when key changes to allow new payment intent creation
+      if (clientSecret) {
+        onClientSecretChange?.(null);
+      }
     }
-  }, [clientSecret, isCreatingIntent]);
+  }, [currentKey, clientSecret, onClientSecretChange]);
+
+  // Auto-create payment intent when component mounts (only if shouldCreateIntent is true)
+  React.useEffect(() => {
+    // Only attempt if we haven't already attempted and all conditions are met
+    if (
+      shouldCreateIntent !== true ||
+      clientSecret ||
+      isCreatingIntent ||
+      hasAttemptedCreation.current
+    ) {
+      return; // Exit early if conditions aren't met
+    }
+
+    // Add a small delay to ensure purchase check has completed
+    const timeoutId = setTimeout(async () => {
+      // Double-check conditions after delay (they might have changed)
+      if (
+        shouldCreateIntent === true &&
+        !clientSecret &&
+        !isCreatingIntent &&
+        !hasAttemptedCreation.current
+      ) {
+        console.log('🔄 StripePaymentForm: Attempting to create payment intent...', {
+          beatId: beat.id,
+          downloadType: selectedDownloadType,
+          pricePaid: selectedLicense.price,
+        });
+
+        try {
+          hasAttemptedCreation.current = true;
+          setPaymentStatus('processing');
+          setError(null);
+
+          const result = await createPaymentIntent({
+            beatId: beat.id,
+            downloadType: selectedDownloadType,
+            pricePaid: parseFloat(selectedLicense.price?.toString() || '0'),
+          }).unwrap();
+
+          setPaymentIntentId(result.payment_intent_id);
+          onClientSecretChange?.(result.client_secret);
+        } catch (err: any) {
+          hasAttemptedCreation.current = false; // Reset on error so user can retry
+          const errorMessage = err?.data?.error || err?.error || 'Failed to create payment intent';
+
+          // Check if error is about already purchased
+          if (
+            errorMessage.toLowerCase().includes('already purchased') ||
+            errorMessage.toLowerCase().includes('already have this purchase')
+          ) {
+            // Don't show error, let the parent component handle it via the purchase check
+            setPaymentStatus('error');
+            onPaymentError('already_purchased');
+            return;
+          }
+
+          setError(errorMessage);
+          setPaymentStatus('error');
+          onPaymentError(errorMessage);
+        }
+      }
+    }, 100); // Small delay to ensure purchase check completes
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    clientSecret,
+    isCreatingIntent,
+    shouldCreateIntent,
+    currentKey,
+    beat.id,
+    selectedDownloadType,
+    selectedLicense.price,
+    createPaymentIntent,
+    onClientSecretChange,
+    onPaymentError,
+  ]);
 
   // Reset payment state when clientSecret changes
   React.useEffect(() => {
@@ -156,27 +244,6 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
       onPaymentError(errorMessage);
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const handleCreatePaymentIntent = async () => {
-    try {
-      setPaymentStatus('processing');
-      setError(null);
-
-      const result = await createPaymentIntent({
-        beatId: beat.id,
-        downloadType: selectedDownloadType,
-        pricePaid: parseFloat(selectedLicense.price?.toString() || '0'),
-      }).unwrap();
-
-      setPaymentIntentId(result.payment_intent_id);
-      onClientSecretChange?.(result.client_secret);
-    } catch (err: any) {
-      const errorMessage = err?.data?.error || 'Failed to create payment intent';
-      setError(errorMessage);
-      setPaymentStatus('error');
-      onPaymentError(errorMessage);
     }
   };
 

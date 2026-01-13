@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
 
-import { Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 
 import type { BeatType } from '@/store/beatApi';
 import { useGetBeatsQuery } from '@/store/beatApi';
+import { useAuthStore } from '@/store/authStore';
 
-import BeatsHeaderBar from '@/components/BeatsHeaderBar';
 import BeatRow from '@/components/BeatRow';
 import BeatCard from '@/components/BeatCard';
 import BeatGrid from '@/components/BeatGrid';
 import BeatFilters from '@/components/BeatFilters';
 import BeatDrawer from '@/components/BeatDrawer';
+import Navbar from '@/components/Navbar';
 
 import '@/pages/Styles/beatspage.scss';
 
@@ -23,12 +24,15 @@ type BeatFiltersType = {
 };
 
 type AuthMode = 'login' | 'forgot' | 'signup';
+type Route = 'music-icon' | 'library' | null;
 
 interface BeatsPageProps {
   selectedBeat: BeatType | null;
   setSelectedBeat: (beat: BeatType | null) => void;
   onSelectBeat: (beat: BeatType) => void;
   onRequestAuth?: (mode: AuthMode) => void;
+  currentRoute?: Route;
+  onNavigate?: (route: Route) => void;
 }
 
 const BeatsPage = ({
@@ -36,8 +40,11 @@ const BeatsPage = ({
   setSelectedBeat,
   onSelectBeat,
   onRequestAuth,
+  currentRoute,
+  onNavigate,
 }: Omit<BeatsPageProps, 'beats'>) => {
   const { data: beats = [], isLoading, isError, error } = useGetBeatsQuery();
+  const { logout } = useAuthStore();
 
   const rootNotes = Array.from(new Set(beats.map(b => b.scale.split(' ')[0]).filter(Boolean))).sort(
     (a, b) => a.localeCompare(b),
@@ -131,35 +138,94 @@ const BeatsPage = ({
     onSelectBeat(beat);
   };
 
-  return (
-    <Box sx={{ px: 3, py: 2, maxWidth: '1280px', marginLeft: 'auto', marginRight: 'auto' }}>
-      <BeatsHeaderBar
-        currentSort={sortConfig.key}
-        currentDirection={sortConfig.direction}
-        onSortChange={newKey => {
-          setSortConfig(prev => {
-            const isSameKey = prev.key === newKey;
-            return {
-              key: newKey,
-              direction: isSameKey && prev.direction === 'asc' ? 'desc' : 'asc',
-            };
-          });
-        }}
-        currentView={viewMode}
-        onToggleView={() => setViewMode(prev => (prev === 'list' ? 'grid' : 'list'))}
-      />
+  const handleLogout = () => logout();
+  const handleSignin = () => {
+    onRequestAuth?.('login');
+  };
 
-      <Box className="beats-container">
-        <BeatFilters
-          filters={filters}
-          setFilters={setFilters}
-          genres={uniqueGenres}
-          minBpm={minBpm}
-          maxBpm={maxBpm}
-          scaleTypes={scaleTypes}
-          notes={rootNotes}
-        />
-        <>
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        overflow: 'hidden',
+      }}
+    >
+      {isSmallScreen && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1100,
+            px: 2,
+            pt: 2,
+            pb: 1,
+            backgroundColor: 'rgba(var(--beat-palette-background-defaultChannel) / 0.6)',
+            backdropFilter: 'blur(16px)',
+            borderRadius: '12px',
+          }}
+        >
+          <Navbar
+            onLogout={handleLogout}
+            onSignin={handleSignin}
+            currentRoute={currentRoute}
+            onNavigate={onNavigate}
+          />
+        </Box>
+      )}
+      <Box
+        className="beats-container"
+        sx={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          px: 3,
+          pt: isSmallScreen ? '140px' : '100px',
+          pb: 2,
+          mt: isSmallScreen ? '24px' : 0,
+          position: 'relative',
+        }}
+      >
+        <Box
+          sx={{
+            position: 'fixed',
+            top: isSmallScreen ? '80px' : 0,
+            left: isSmallScreen ? '0px' : '104px',
+            right: isSmallScreen ? '0px' : '24px',
+            width: isSmallScreen ? '100%' : 'calc(100% - 128px)',
+            zIndex: 1000,
+            pt: isSmallScreen ? 1 : 2,
+            pb: 1,
+            marginTop: isSmallScreen ? '0' : '20px',
+          }}
+        >
+          <BeatFilters
+            filters={filters}
+            setFilters={setFilters}
+            genres={uniqueGenres}
+            minBpm={minBpm}
+            maxBpm={maxBpm}
+            scaleTypes={scaleTypes}
+            notes={rootNotes}
+            currentSort={sortConfig.key}
+            currentDirection={sortConfig.direction}
+            onSortChange={newKey => {
+              setSortConfig(prev => {
+                const isSameKey = prev.key === newKey;
+                return {
+                  key: newKey,
+                  direction: isSameKey && prev.direction === 'asc' ? 'desc' : 'asc',
+                };
+              });
+            }}
+            currentView={viewMode}
+            onToggleView={() => setViewMode(prev => (prev === 'list' ? 'grid' : 'list'))}
+          />
+        </Box>
+        <Box sx={{ paddingBottom: '60px' }}>
           {/* LIST view with animation - use BeatCard on small screens, BeatRow on larger screens */}
           <Box
             sx={{
@@ -176,8 +242,6 @@ const BeatsPage = ({
                 }
                 gap={2}
                 justifyContent={isVerySmallScreen ? 'center' : 'stretch'}
-                maxWidth={isVerySmallScreen ? '300px' : '100%'}
-                margin={isVerySmallScreen ? '0 auto' : '0'}
               >
                 <LayoutGroup>
                   <AnimatePresence mode="sync">
@@ -221,7 +285,27 @@ const BeatsPage = ({
           <Box sx={{ display: viewMode === 'grid' ? 'block' : 'none' }}>
             <BeatGrid beats={sortedBeats} onSelect={handleSelectBeat} />
           </Box>
-        </>
+          <Box
+            sx={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              textAlign: 'center',
+              fontSize: '12px',
+              color: 'text.primary',
+              py: 2,
+              zIndex: 100,
+              backgroundColor: 'rgba(var(--beat-palette-background-defaultChannel) / 0.5)',
+              backdropFilter: 'blur(10px)',
+              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            }}
+          >
+            <Typography variant="body2" color="text.primary" sx={{ opacity: '.5' }}>
+              Small World South MG
+            </Typography>
+          </Box>
+        </Box>
       </Box>
       <BeatDrawer
         open={Boolean(selectedBeat)}

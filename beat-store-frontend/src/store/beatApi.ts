@@ -2,7 +2,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 // Custom base query that handles token errors
 const baseQuery = fetchBaseQuery({
-  baseUrl: `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/`,
+  baseUrl: `${import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/`,
   prepareHeaders: headers => {
     // Get token from localStorage or state
     const token = localStorage.getItem('token');
@@ -42,8 +42,8 @@ export interface BeatType {
   genre: string;
   bpm: number;
   scale: string;
-  cover_art: string;
-  snippet_mp3: string;
+  cover_art: string | null;
+  snippet_mp3: string | null;
   mp3_file: string | null;
   mp3_price: string | null;
   wav_file: string | null;
@@ -62,7 +62,7 @@ export interface CreatePaymentIntentRequest {
 export interface CreatePaymentIntentResponse {
   client_secret: string;
   payment_intent_id: string;
-  purchase_id: number;
+  // purchase_id is no longer returned - purchase is only created after payment succeeds
 }
 
 export interface PurchaseRequest {
@@ -89,6 +89,13 @@ export interface ConfirmPaymentResponse {
   download_type: string;
 }
 
+export interface CheckPurchaseResponse {
+  has_purchase: boolean;
+  purchase_id?: number;
+  download_type?: string;
+  purchased_at?: string;
+}
+
 export const beatApi = createApi({
   reducerPath: 'beatApi',
   baseQuery: baseQueryWithReauth,
@@ -96,6 +103,21 @@ export const beatApi = createApi({
   endpoints: builder => ({
     getBeats: builder.query<BeatType[], void>({
       query: () => 'beats/',
+    }),
+    checkPurchase: builder.query<CheckPurchaseResponse, { beatId: number; downloadType: string }>({
+      query: ({ beatId, downloadType }) => ({
+        url: `beats/${beatId}/check_purchase/?type=${downloadType}`,
+        method: 'GET',
+      }),
+      transformResponse: (response: CheckPurchaseResponse) => {
+        console.log('checkPurchase response:', response);
+        if (response.has_purchase === true) {
+          console.log('✅ Purchase found! Beat was already purchased.');
+        } else {
+          console.log('❌ No purchase found. Beat is available for purchase.');
+        }
+        return response;
+      },
     }),
     createPaymentIntent: builder.mutation<CreatePaymentIntentResponse, CreatePaymentIntentRequest>({
       query: ({ beatId, downloadType, pricePaid }) => ({
@@ -143,4 +165,5 @@ export const {
   usePurchaseBeatMutation,
   useDownloadBeatMutation,
   useConfirmPaymentMutation,
+  useCheckPurchaseQuery,
 } = beatApi;

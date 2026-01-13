@@ -1,14 +1,40 @@
-import { Box, Typography, IconButton, Avatar, Chip } from '@mui/material';
-import { PlayArrowRounded, FileDownloadRounded, PauseRounded } from '@mui/icons-material';
+import { useEffect, useState, useRef, useMemo } from 'react';
+import { Box, Typography, IconButton, Avatar, Chip, Skeleton } from '@mui/material';
+import {
+  PlayArrowRounded,
+  FileDownloadRounded,
+  PauseRounded,
+  CheckCircle,
+} from '@mui/icons-material';
 
 import type { BeatType } from '@/store/beatApi';
 import { usePlaybackStore } from '@/store/playBackStore';
+import { useCheckPurchaseQuery } from '@/store/beatApi';
+import { useAuthStore } from '@/store/authStore';
 
 import Waveform from '@/components/Waveform';
 
 import { genreColors } from '@/constants/genreColors';
+import { get30SecondSnippetUrl, releaseBlobUrl } from '@/utils/audioUtils';
 
 import '@/components/Style/beatrow.scss';
+
+/**
+ * Generate a consistent random color based on a string
+ */
+const generateColorFromString = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  // Generate vibrant colors (avoid too dark or too light)
+  const hue = Math.abs(hash) % 360;
+  const saturation = 60 + (Math.abs(hash) % 20); // 60-80%
+  const lightness = 45 + (Math.abs(hash) % 15); // 45-60%
+
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+};
 
 interface BeatRowProps extends BeatType {
   onClick?: () => void;
@@ -22,16 +48,131 @@ const BeatRow = ({
   scale,
   cover_art,
   snippet_mp3,
+  mp3_file,
   onClick,
 }: BeatRowProps) => {
   const { currentBeatId, isPlaying, play, pause, setBeat } = usePlaybackStore();
+  const { isLoggedIn } = useAuthStore();
 
   const isCurrent = currentBeatId === id;
 
+  // Check if beat has been purchased (checking mp3 as default)
+  const { data: purchaseCheck } = useCheckPurchaseQuery(
+    {
+      beatId: id,
+      downloadType: 'mp3',
+    },
+    {
+      skip: !isLoggedIn,
+    },
+  );
+
+  const isPurchased = purchaseCheck?.has_purchase === true;
+
+  // State for frontend-generated snippet URL
+  const [frontendSnippetUrl, setFrontendSnippetUrl] = useState<string | null>(null);
+  const snippetUrlRef = useRef<string | null>(null);
+
+  // Use snippet_mp3 if available, otherwise create 30-second snippet from mp3_file in frontend
+  useEffect(() => {
+    // Release previous blob URL reference if it exists
+    if (snippetUrlRef.current) {
+      releaseBlobUrl(snippetUrlRef.current);
+      snippetUrlRef.current = null;
+    }
+
+    if (snippet_mp3) {
+      // Backend snippet exists, use it
+      setFrontendSnippetUrl(null);
+    } else if (mp3_file) {
+      // Generate 30-second snippet from mp3_file in frontend
+      get30SecondSnippetUrl(mp3_file)
+        .then(url => {
+          if (url) {
+            snippetUrlRef.current = url;
+            setFrontendSnippetUrl(url);
+            console.log(`✅ Created 30-second snippet from mp3_file for "${name}"`);
+          }
+        })
+        .catch(error => {
+          console.error(`Failed to create snippet for "${name}":`, error);
+        });
+    } else {
+      setFrontendSnippetUrl(null);
+    }
+
+    // Cleanup: release blob URL reference when component unmounts or URL changes
+    return () => {
+      if (snippetUrlRef.current) {
+        releaseBlobUrl(snippetUrlRef.current);
+        snippetUrlRef.current = null;
+      }
+    };
+  }, [snippet_mp3, mp3_file, name]);
+
+  // Use snippet_mp3 if available, otherwise use frontend-generated snippet, fallback to mp3_file
+  const waveformUrl = snippet_mp3 || frontendSnippetUrl || mp3_file || null;
+
+  // Use snippet_mp3 if available, otherwise use frontend-generated snippet, fallback to mp3_file for playback
+  const audioUrl = snippet_mp3 || frontendSnippetUrl || mp3_file || null;
+
+  // Debug: Log snippet_mp3 status
+  useEffect(() => {
+    if (snippet_mp3) {
+      console.log(`✅ snippet_mp3 exists for "${name}":`, snippet_mp3);
+    } else if (mp3_file) {
+      console.warn(
+        `⚠️ snippet_mp3 is missing for "${name}". Using mp3_file as fallback:`,
+        mp3_file,
+      );
+    }
+  }, [snippet_mp3, mp3_file, name]);
+
+  // Generate consistent random background color for fallback
+  const fallbackColor = useMemo(() => generateColorFromString(name), [name]);
+
+  // Waveform loading state
+  const [isWaveformLoading, setIsWaveformLoading] = useState(true);
+  const waveformLoadStartTime = useRef<number | null>(null);
+
+  // Manage waveform loading state with minimum 500ms display time
+  useEffect(() => {
+    if (waveformUrl) {
+      setIsWaveformLoading(true);
+      waveformLoadStartTime.current = Date.now();
+
+      // Log snippet_mp3 duration to verify it's 30 seconds
+      if (snippet_mp3) {
+        const audio = new Audio(snippet_mp3);
+        audio.addEventListener('loadedmetadata', () => {
+          console.log(`snippet_mp3 duration for "${name}": ${audio.duration} seconds`);
+        });
+      }
+    } else {
+      setIsWaveformLoading(false);
+    }
+  }, [waveformUrl, snippet_mp3, name]);
+
+  // Handle waveform ready callback with minimum 500ms display time
+  const handleWaveformReady = () => {
+    if (waveformLoadStartTime.current) {
+      const elapsed = Date.now() - waveformLoadStartTime.current;
+      const minDisplayTime = 500;
+      const remainingTime = Math.max(0, minDisplayTime - elapsed);
+
+      setTimeout(() => {
+        setIsWaveformLoading(false);
+        waveformLoadStartTime.current = null;
+      }, remainingTime);
+    } else {
+      setIsWaveformLoading(false);
+    }
+  };
+
   const handlePlayPause = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isCurrent) {
-      setBeat(id, snippet_mp3);
+    if (!isCurrent && audioUrl) {
+      setBeat(id, audioUrl);
     } else {
       isPlaying ? pause() : play();
     }
@@ -39,19 +180,39 @@ const BeatRow = ({
 
   return (
     <Box className="beat-row" onClick={onClick}>
-      <Avatar className="cover-art" src={cover_art} alt={name} />
+      {cover_art ? (
+        <Avatar className="cover-art" src={cover_art} alt={name} />
+      ) : (
+        <Box
+          className="cover-art"
+          sx={{
+            backgroundColor: fallbackColor,
+            color: '#fff',
+            fontWeight: 600,
+            padding: '8px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+          }}
+        >
+          <Typography
+            variant="body1"
+            sx={{
+              fontSize: '12px',
+              textShadow: '2px 2px 8px rgba(0, 0, 0, 0.4)',
+            }}
+          >
+            {name}
+          </Typography>
+        </Box>
+      )}
 
       <Box className="info">
         <Typography className="beat-name" sx={{ fontSize: '16px' }}>
           {name}
         </Typography>
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{
-            paddingLeft: '4px',
-          }}
-        >
+        <Typography variant="body2" color="text.secondary">
           {bpm}bpm • {scale}
         </Typography>
         <Box className="meta-info">
@@ -65,10 +226,54 @@ const BeatRow = ({
           />
         </Box>
       </Box>
-      <Waveform url={snippet_mp3} isCurrent={isCurrent} />
+      <Box
+        sx={{
+          width: '100%',
+          height: 60,
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        {isWaveformLoading && (
+          <Skeleton
+            variant="circular"
+            width="100%"
+            animation="wave"
+            height={36}
+            sx={{
+              borderRadius: '100px',
+              position: 'absolute',
+              top: '50%',
+              left: 0,
+              transform: 'translateY(-50%)',
+            }}
+          />
+        )}
+        <Box
+          sx={{
+            width: '100%',
+            opacity: isWaveformLoading ? 0 : 1,
+            transition: 'opacity 0.5s ease-in-out',
+          }}
+        >
+          {waveformUrl && (
+            <Waveform
+              url={waveformUrl}
+              isCurrent={isCurrent}
+              beatId={id}
+              onReady={handleWaveformReady}
+            />
+          )}
+        </Box>
+      </Box>
 
       <Box className="beat-row-actions">
-        <FileDownloadRounded className="download-icon" />
+        {isPurchased ? (
+          <CheckCircle className="check-icon" sx={{ color: '#1db954' }} />
+        ) : (
+          <FileDownloadRounded className="download-icon" />
+        )}
         <IconButton
           className="play-btn"
           onClick={e => {

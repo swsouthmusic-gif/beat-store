@@ -1,10 +1,12 @@
 // components/Waveform.tsx
 import React, { useEffect, useRef } from 'react';
 import WaveSurfer from 'wavesurfer.js';
+import { useWaveformStore } from '@/store/waveformStore';
 
 interface WaveformProps {
   url: string;
   isCurrent: boolean;
+  beatId: number;
   audioElementId?: string;
   waveColor?: string;
   progressColor?: string;
@@ -12,20 +14,25 @@ interface WaveformProps {
   barWidth?: number;
   barGap?: number;
   barRadius?: number;
+  onReady?: () => void;
 }
 
 const Waveform = ({
   url,
   isCurrent = false,
+  beatId,
   waveColor = '#373737',
   progressColor = '#ffffff',
   height = 60,
   barWidth = 2,
   barGap = 2,
   barRadius = 4,
+  onReady,
 }: WaveformProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const waveSurferRef = useRef<WaveSurfer | null>(null);
+  const { registerInstance, unregisterInstance, currentBeatId, currentTime, duration } =
+    useWaveformStore();
+  const wavesurferRef = useRef<WaveSurfer | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || !url) return;
@@ -45,43 +52,60 @@ const Waveform = ({
       backend: 'WebAudio',
     });
 
-    waveSurferRef.current = wavesurfer;
+    wavesurferRef.current = wavesurfer;
     wavesurfer.load(url);
 
+    // Register this instance with the store
+    registerInstance(url, beatId, wavesurfer);
+
     wavesurfer.on('ready', () => {
-      console.log('Waveform ready:', url);
-      console.log('Duration:', wavesurfer.getDuration());
+      onReady?.();
     });
 
     return () => {
+      unregisterInstance(url, wavesurfer);
       wavesurfer.destroy();
     };
-  }, [url]);
+  }, [
+    url,
+    beatId,
+    height,
+    waveColor,
+    progressColor,
+    barWidth,
+    barGap,
+    barRadius,
+    registerInstance,
+    unregisterInstance,
+    onReady,
+  ]);
 
+  // Update progress when currentTime changes (synced from waveform store)
   useEffect(() => {
-    const wavesurfer = waveSurferRef.current;
-    const audioEl = document.getElementById('global-audio') as HTMLMediaElement;
+    const wavesurfer = wavesurferRef.current;
+    if (!wavesurfer || !isCurrent || beatId !== currentBeatId) return;
 
-    if (isCurrent && wavesurfer && audioEl) {
-      const updateProgress = () => {
-        const currentTime = audioEl.currentTime;
-        const duration = wavesurfer.getDuration();
-        if (duration) {
-          wavesurfer.seekTo(currentTime / duration);
-        }
-      };
-
-      const handleTimeUpdate = () => updateProgress();
-
-      audioEl.addEventListener('timeupdate', handleTimeUpdate);
-
-      return () => {
-        audioEl.removeEventListener('timeupdate', handleTimeUpdate);
-      };
+    const wavesurferDuration = wavesurfer.getDuration();
+    if (wavesurferDuration > 0 && currentTime > 0 && duration > 0) {
+      try {
+        // Use the duration from the store if available, otherwise use wavesurfer's duration
+        const targetDuration = duration || wavesurferDuration;
+        wavesurfer.seekTo(currentTime / targetDuration);
+      } catch (error) {
+        // Ignore errors if wavesurfer is not ready
+      }
     }
+  }, [isCurrent, currentTime, duration, beatId, currentBeatId]);
 
-    if (!isCurrent && wavesurfer) {
+  // Reset progress when not current
+  useEffect(() => {
+    const wavesurfer = wavesurferRef.current;
+    if (!wavesurfer || isCurrent) return;
+
+    try {
       wavesurfer.seekTo(0);
+    } catch (error) {
+      // Ignore errors
     }
   }, [isCurrent]);
 

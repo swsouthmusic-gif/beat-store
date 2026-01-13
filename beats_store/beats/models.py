@@ -1,8 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from django.core.files.base import ContentFile
 import uuid
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Beat(models.Model):
     name = models.CharField(max_length=255)
@@ -10,8 +15,8 @@ class Beat(models.Model):
     bpm = models.PositiveIntegerField()
     scale = models.CharField(max_length=50)
 
-    cover_art = models.ImageField(upload_to="covers/")
-    snippet_mp3 = models.FileField(upload_to="snippets/")
+    cover_art = models.ImageField(upload_to="covers/", null=True, blank=True)
+    snippet_mp3 = models.FileField(upload_to="snippets/", null=True, blank=True)
 
     price = models.DecimalField(max_digits=6, decimal_places=2)
 
@@ -67,6 +72,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     photo = models.ImageField(upload_to="profiles/", null=True, blank=True)
     bio = models.TextField(max_length=500, blank=True)
+    middle_initial = models.CharField(max_length=1, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -97,3 +103,111 @@ def save_user_profile(sender, instance, **kwargs):
     """Automatically save the UserProfile when the User is saved"""
     if hasattr(instance, 'profile'):
         instance.profile.save()
+
+
+@receiver(pre_save, sender=Beat)
+def track_mp3_file_change(sender, instance, **kwargs):
+    """Track if mp3_file is being changed to regenerate snippet if needed"""
+    if instance.pk:
+        try:
+            old_instance = Beat.objects.get(pk=instance.pk)
+            # Check if mp3_file changed
+            if old_instance.mp3_file != instance.mp3_file:
+                instance._mp3_file_changed = True
+                # If snippet was auto-generated (starts with 'snippet_'), mark it for regeneration
+                if old_instance.snippet_mp3:
+                    snippet_name = os.path.basename(old_instance.snippet_mp3.name)
+                    if snippet_name.startswith('snippet_'):
+                        instance._should_regenerate_snippet = True
+        except Beat.DoesNotExist:
+            pass
+
+
+@receiver(post_save, sender=Beat)
+def generate_snippet_from_mp3(sender, instance, created, **kwargs):
+    """Automatically generate a 30-second snippet from mp3_file if snippet_mp3 is not provided"""
+    # Prevent recursion if we're updating the snippet
+    if hasattr(instance, '_updating_snippet'):
+        return
+    
+    # Skip if mp3_file doesn't exist
+    if not instance.mp3_file:
+        return
+    
+    # Determine if we need to generate snippet
+    should_generate = False
+    
+    if created:
+        # New beat: generate if snippet doesn't exist
+        should_generate = not instance.snippet_mp3
+    else:
+        # Existing beat: regenerate if mp3_file changed and snippet was auto-generated
+        if hasattr(instance, '_should_regenerate_snippet') and instance._should_regenerate_snippet:
+            should_generate = True
+        # Or generate if snippet doesn't exist but mp3_file does
+        elif not instance.snippet_mp3:
+            should_generate = True
+    
+    if not should_generate:
+        return
+    
+    try:
+        from pydub import AudioSegment
+        
+        # Get the path to the mp3 file
+        mp3_path = instance.mp3_file.path
+        
+        if not os.path.exists(mp3_path):
+            logger.warning(f"MP3 file not found at {mp3_path}")
+            return
+        
+        # Load the audio file
+        audio = AudioSegment.from_mp3(mp3_path)
+        
+        # Get the first 30 seconds (30 * 1000 milliseconds)
+        snippet_duration = 30 * 1000  # 30 seconds in milliseconds
+        # Ensure we don't exceed the audio length
+        snippet = audio[:min(snippet_duration, len(audio))]
+        
+        # Generate snippet filename
+        mp3_filename = os.path.basename(instance.mp3_file.name)
+        snippet_filename = f"snippet_{mp3_filename}"
+        
+        # Export snippet to a temporary file
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
+            snippet.export(temp_file.name, format='mp3')
+            temp_path = temp_file.name
+        
+        # Read the generated snippet
+        with open(temp_path, 'rb') as f:
+            snippet_content = f.read()
+        
+        # Delete old snippet if regenerating
+        if instance.snippet_mp3 and hasattr(instance, '_should_regenerate_snippet'):
+            instance.snippet_mp3.delete(save=False)
+        
+        # Save to snippet_mp3 field
+        instance.snippet_mp3.save(
+            snippet_filename,
+            ContentFile(snippet_content),
+            save=False
+        )
+        
+        # Clean up temporary file
+        os.unlink(temp_path)
+        
+        # Save the instance to persist the snippet (using update_fields to avoid recursion)
+        # Mark that we're updating snippet to prevent infinite recursion
+        instance._updating_snippet = True
+        instance.save(update_fields=['snippet_mp3'])
+        delattr(instance, '_updating_snippet')
+        
+        logger.info(f"Generated 30-second snippet for beat {instance.id}")
+        
+    except ImportError:
+        logger.error("pydub is not installed. Please install it with: pip install pydub")
+    except Exception as e:
+        logger.error(f"Error generating snippet for beat {instance.id}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())

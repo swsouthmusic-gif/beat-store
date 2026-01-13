@@ -6,6 +6,7 @@ class BeatAdmin(admin.ModelAdmin):
     list_display = ("name", "genre", "bpm", "price", "created_at")
     search_fields = ("name", "genre")
     list_filter = ("genre", "scale", "bpm")
+    exclude = ("snippet_mp3",)  # Exclude snippet_mp3 from form - it's auto-generated from mp3_file
 
 @admin.register(Purchase)
 class PurchaseAdmin(admin.ModelAdmin):

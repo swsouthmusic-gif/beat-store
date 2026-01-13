@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Box, Typography, Button, Chip, Divider, Alert } from '@mui/material';
 import { ArrowBackRounded, Download } from '@mui/icons-material';
 import { genreColors } from '@/constants/genreColors';
 import { levelLabelMap, levelColorMap, iconTypeMap } from '@/constants/licenseMaps';
-import { useDownloadBeatMutation } from '@/store/beatApi';
+import { useDownloadBeatMutation, useCheckPurchaseQuery } from '@/store/beatApi';
 import { useAuthStore } from '@/store/authStore';
 import type { BeatType } from '@/store/beatApi';
 import StripeProvider from './StripeProvider';
 import StripePaymentForm from './StripePaymentForm';
 import DownloadLoading from './DownloadLoading';
+import AlreadyPurchasedModal from './AlreadyPurchasedModal';
+import JSZip from 'jszip';
+import { generateLicenseAgreementPDF } from '@/utils/pdfUtils';
 
 type LicenseInfo = {
   type: 'mp3' | 'wav' | 'stems';
@@ -42,25 +45,82 @@ const CheckoutStep = ({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [showAlreadyPurchasedModal, setShowAlreadyPurchasedModal] = useState(false);
 
   // Auth and API hooks
-  const { isLoggedIn } = useAuthStore();
+  const { isLoggedIn, userProfile } = useAuthStore();
   const [downloadBeat, { isLoading: isDownloading }] = useDownloadBeatMutation();
 
-  const handlePaymentSuccess = (downloadUrl: string) => {
-    setPurchaseSuccess(true);
-    setDownloadUrl(downloadUrl);
-    setError(null);
+  // Ref to track previous render state to prevent unnecessary logging
+  const prevRenderStateRef = useRef<{
+    shouldRenderForm: boolean;
+    isCheckingPurchase: boolean;
+    hasPurchase: boolean;
+    purchaseCheckComplete: boolean;
+  } | null>(null);
 
-    // Trigger download
-    handleDownload();
-  };
+  // Check if beat was already purchased
+  const {
+    data: purchaseCheck,
+    isLoading: isCheckingPurchase,
+    error: purchaseCheckError,
+  } = useCheckPurchaseQuery(
+    {
+      beatId: beat?.id ?? 0,
+      downloadType: selectedDownloadType ?? 'mp3',
+    },
+    {
+      skip: !beat || !selectedDownloadType || !isLoggedIn,
+    },
+  );
 
-  const handlePaymentError = (errorMessage: string) => {
-    setError(errorMessage);
-  };
+  // Debug logging for purchase check
+  useEffect(() => {
+    if (beat && selectedDownloadType && isLoggedIn) {
+      console.log('🔍 CheckoutStep: Purchase check params:', {
+        beatId: beat.id,
+        downloadType: selectedDownloadType,
+        isLoggedIn,
+        isCheckingPurchase,
+        purchaseCheck,
+        purchaseCheckError,
+      });
+    } else {
+      console.log('⏸️ CheckoutStep: Purchase check skipped:', {
+        hasBeat: !!beat,
+        hasDownloadType: !!selectedDownloadType,
+        isLoggedIn,
+      });
+    }
+  }, [
+    beat?.id,
+    selectedDownloadType,
+    isLoggedIn,
+    isCheckingPurchase,
+    purchaseCheck,
+    purchaseCheckError,
+  ]);
 
-  const handleDownload = async () => {
+  // Show modal if purchase exists
+  useEffect(() => {
+    if (purchaseCheck?.has_purchase === true && !purchaseSuccess) {
+      setShowAlreadyPurchasedModal(true);
+      setError(null); // Clear any errors when showing the modal
+    }
+  }, [purchaseCheck?.has_purchase, purchaseSuccess]);
+
+  // Format full name with middle initial for signature
+  const fullName = useMemo(() => {
+    if (!userProfile) return '';
+    const parts = [
+      userProfile.first_name,
+      userProfile.middle_initial ? `${userProfile.middle_initial}.` : null,
+      userProfile.last_name,
+    ].filter(Boolean);
+    return parts.join(' ');
+  }, [userProfile]);
+
+  const handleDownload = React.useCallback(async () => {
     if (!beat || !selectedDownloadType) return;
 
     try {
@@ -68,19 +128,38 @@ const CheckoutStep = ({
       onDownloadStateChange?.(true);
 
       // Use RTK Query mutation for download
-      const blob = await downloadBeat({
+      const beatBlob = await downloadBeat({
         beatId: beat.id,
         downloadType: selectedDownloadType,
       }).unwrap();
 
+      // Generate License Agreement PDF
+      const pdfBlob = generateLicenseAgreementPDF({
+        beatName: beat.name,
+        downloadType: selectedDownloadType,
+        signatureName: fullName || 'User',
+        date: new Date().toLocaleDateString(),
+      });
+
+      // Create zip file
+      const zip = new JSZip();
+
+      // Add beat file to zip
+      const fileExtension = selectedDownloadType === 'stems' ? 'zip' : selectedDownloadType;
+      const beatFileName = `${beat.name}_${selectedDownloadType}.${fileExtension}`;
+      zip.file(beatFileName, beatBlob);
+
+      // Add PDF to zip
+      zip.file('License_Agreement.pdf', pdfBlob);
+
+      // Generate zip blob
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+
       // Create blob URL and trigger download
-      const blobUrl = window.URL.createObjectURL(blob);
+      const blobUrl = window.URL.createObjectURL(zipBlob);
       const link = document.createElement('a');
       link.href = blobUrl;
-
-      // Set correct file extension
-      const fileExtension = selectedDownloadType === 'stems' ? 'zip' : selectedDownloadType;
-      link.download = `${beat.name}_${selectedDownloadType}.${fileExtension}`;
+      link.download = `${beat.name}_${selectedDownloadType}_with_license.zip`;
 
       document.body.appendChild(link);
       link.click();
@@ -95,10 +174,65 @@ const CheckoutStep = ({
       // Notify parent component that download is finished
       onDownloadStateChange?.(false);
     }
-  };
+  }, [beat, selectedDownloadType, downloadBeat, onDownloadStateChange, fullName]);
+
+  const handlePaymentSuccess = React.useCallback(
+    (downloadUrl: string) => {
+      setPurchaseSuccess(true);
+      setDownloadUrl(downloadUrl);
+      setError(null);
+
+      // Trigger download
+      handleDownload();
+    },
+    [handleDownload],
+  );
+
+  const handlePaymentError = React.useCallback((errorMessage: string) => {
+    // If error is about already purchased, show the modal instead
+    if (
+      errorMessage.toLowerCase().includes('already purchased') ||
+      errorMessage.toLowerCase().includes('already have this purchase') ||
+      errorMessage === 'already_purchased'
+    ) {
+      setShowAlreadyPurchasedModal(true);
+      setError(null);
+      return;
+    }
+    setError(errorMessage);
+  }, []);
+
+  const handleClientSecretChange = React.useCallback((secret: string | null) => {
+    setClientSecret(secret);
+  }, []);
+
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  // Generate consistent random background color for fallback
+  const fallbackColor = useMemo(() => {
+    if (!beat?.name) return 'hsl(0, 0%, 50%)';
+    let hash = 0;
+    for (let i = 0; i < beat.name.length; i++) {
+      hash = beat.name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    const saturation = 60 + (Math.abs(hash) % 20);
+    const lightness = 45 + (Math.abs(hash) % 15);
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  }, [beat?.name]);
 
   return (
     <>
+      {/* Already Purchased Modal */}
+      <AlreadyPurchasedModal
+        open={showAlreadyPurchasedModal}
+        onClose={() => setShowAlreadyPurchasedModal(false)}
+        beat={beat ?? null}
+        downloadType={selectedDownloadType ?? null}
+        onDownload={handleDownload}
+        isDownloading={isDownloading}
+      />
+
       {/* Download Loading Overlay */}
       <DownloadLoading
         isVisible={isDownloading}
@@ -112,12 +246,33 @@ const CheckoutStep = ({
           <Box className="beat-selected-container">
             <Box className="beat-selected">
               <Box className="beat-cover-container">
-                <img
-                  src={beat.cover_art}
-                  alt={beat.name}
-                  className="beat-cover-art"
-                  crossOrigin="anonymous"
-                />
+                {beat.cover_art ? (
+                  <img
+                    ref={imgRef}
+                    src={beat.cover_art ?? undefined}
+                    alt={beat.name}
+                    className="beat-cover-art"
+                    crossOrigin="anonymous"
+                  />
+                ) : (
+                  <Box
+                    className="beat-cover-art"
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      backgroundColor: fallbackColor,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      textAlign: 'center',
+                      padding: '16px',
+                      fontSize: '18px',
+                      fontWeight: 600,
+                      lineHeight: 1.2,
+                    }}
+                  ></Box>
+                )}
 
                 <Box
                   sx={{
@@ -253,30 +408,122 @@ const CheckoutStep = ({
           </Box>
         )}
 
-        {/* Stripe Payment Form */}
-        {isLoggedIn && !purchaseSuccess && beat && selectedDownloadType && selectedLicense && (
+        {/* Loading state while checking purchase */}
+        {isLoggedIn && isCheckingPurchase && beat && selectedDownloadType && (
           <Box className="checkout-form">
             <Typography variant="h6" sx={{ paddingBottom: '16px' }}>
-              Complete Your Purchase
+              Checking purchase status...
             </Typography>
-
-            <StripeProvider
-              clientSecret={clientSecret || undefined}
-              amount={selectedLicense.price ? parseFloat(selectedLicense.price.toString()) : 0}
-              currency="usd"
-            >
-              <StripePaymentForm
-                beat={beat}
-                selectedDownloadType={selectedDownloadType}
-                selectedLicense={selectedLicense}
-                onPaymentSuccess={handlePaymentSuccess}
-                onPaymentError={handlePaymentError}
-                onClientSecretChange={setClientSecret}
-                clientSecret={clientSecret}
-              />
-            </StripeProvider>
           </Box>
         )}
+
+        {/* Stripe Payment Form - Only show if not already purchased and not checking */}
+        {(() => {
+          // CRITICAL: Don't render form until purchase check is complete
+          const purchaseCheckComplete = purchaseCheck !== undefined;
+          const hasPurchase = purchaseCheck?.has_purchase === true;
+          const noPurchase = purchaseCheck?.has_purchase === false;
+
+          const shouldRenderForm = Boolean(
+            isLoggedIn &&
+              !purchaseSuccess &&
+              !showAlreadyPurchasedModal &&
+              !isCheckingPurchase &&
+              purchaseCheckComplete &&
+              noPurchase &&
+              !hasPurchase && // Double check
+              beat &&
+              selectedDownloadType &&
+              selectedLicense,
+          );
+
+          // Debug logging - only log when state actually changes
+          const currentState = {
+            shouldRenderForm,
+            isCheckingPurchase,
+            hasPurchase,
+            purchaseCheckComplete,
+          };
+
+          if (
+            !prevRenderStateRef.current ||
+            prevRenderStateRef.current.shouldRenderForm !== shouldRenderForm ||
+            prevRenderStateRef.current.isCheckingPurchase !== isCheckingPurchase ||
+            prevRenderStateRef.current.hasPurchase !== hasPurchase ||
+            prevRenderStateRef.current.purchaseCheckComplete !== purchaseCheckComplete
+          ) {
+            if (shouldRenderForm) {
+              console.log('✅ CheckoutStep: Rendering StripePaymentForm - No purchase found');
+            } else if (isCheckingPurchase) {
+              console.log('⏳ CheckoutStep: Waiting for purchase check to complete...');
+            } else if (hasPurchase) {
+              console.log('⛔ CheckoutStep: Purchase exists - NOT rendering payment form');
+            } else if (!purchaseCheckComplete) {
+              console.log('⏳ CheckoutStep: Purchase check result not available yet');
+            }
+            prevRenderStateRef.current = currentState;
+          }
+
+          if (!shouldRenderForm || !beat || !selectedDownloadType || !selectedLicense) {
+            return null;
+          }
+
+          return (
+            <Box className="checkout-form">
+              <Typography variant="h6" sx={{ paddingBottom: '16px' }}>
+                Complete Your Purchase
+              </Typography>
+
+              <StripeProvider
+                clientSecret={clientSecret || undefined}
+                amount={selectedLicense.price ? parseFloat(selectedLicense.price.toString()) : 0}
+                currency="usd"
+              >
+                <StripePaymentForm
+                  key={`${beat.id}-${selectedDownloadType}-${selectedLicense.price}`}
+                  beat={beat}
+                  selectedDownloadType={selectedDownloadType}
+                  selectedLicense={selectedLicense}
+                  onPaymentSuccess={handlePaymentSuccess}
+                  onPaymentError={handlePaymentError}
+                  onClientSecretChange={handleClientSecretChange}
+                  clientSecret={clientSecret}
+                  shouldCreateIntent={true}
+                />
+              </StripeProvider>
+            </Box>
+          );
+        })()}
+
+        {/* Show message if already purchased but modal is closed */}
+        {isLoggedIn &&
+          purchaseCheck?.has_purchase === true &&
+          !showAlreadyPurchasedModal &&
+          !purchaseSuccess && (
+            <Box className="checkout-form">
+              <Alert severity="info" sx={{ mb: 3, borderRadius: '12px' }}>
+                You've already purchased this download. Click the button below to download again.
+              </Alert>
+              <Button
+                variant="contained"
+                onClick={() => setShowAlreadyPurchasedModal(true)}
+                startIcon={<Download />}
+                sx={{
+                  borderRadius: '12px',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 4,
+                  py: 1.5,
+                  background: 'linear-gradient(135deg, #1db954 0%, #1ed760 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #1aa34a 0%, #1db954 100%)',
+                  },
+                }}
+              >
+                Download Again
+              </Button>
+            </Box>
+          )}
 
         {/* Success/Error Messages */}
         {purchaseSuccess && (

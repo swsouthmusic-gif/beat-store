@@ -6,6 +6,7 @@ class BeatSerializer(serializers.ModelSerializer):
     class Meta:
         model = Beat
         fields = '__all__'
+        read_only_fields = ['snippet_mp3']  # snippet_mp3 is auto-generated from mp3_file
 
 class PurchaseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -17,7 +18,7 @@ class PurchaseSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['photo', 'bio', 'created_at', 'updated_at']
+        fields = ['photo', 'bio', 'middle_initial', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 

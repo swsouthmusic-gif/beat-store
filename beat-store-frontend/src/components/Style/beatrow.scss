@@ -27,14 +27,16 @@
   }
 
   .cover-art {
-    width: 80px;
     height: 80px;
+    width: 80px;
     object-fit: cover;
     border-radius: 100px;
+    flex-shrink: 0;
   }
 
   .info {
     display: flex;
+    width: 100%;
     flex-direction: column;
     max-width: 124px;
     min-width: 0; // Allow text to wrap properly
@@ -77,6 +79,11 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    .check-icon {
+      opacity: 1;
+      font-size: 28px;
+      margin-top: 5px;
+    }
     .download-icon {
       opacity: 0.4;
       font-size: 28px;

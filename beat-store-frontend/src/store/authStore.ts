@@ -6,6 +6,9 @@ import type { UpdateProfileData } from '@/api/users';
 interface AuthUserProfile {
   username: string;
   email: string;
+  first_name: string;
+  last_name: string;
+  middle_initial: string;
   bio: string;
   location: string;
   avatar: string | File | null;
@@ -33,9 +36,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   rehydrate: () => {
     if (typeof window === 'undefined') return;
     const token = localStorage.getItem('token');
-    if (token) {
+    if (token && token !== 'null' && token !== 'undefined' && token.trim() !== '') {
       set({ token, isLoggedIn: true });
-      get().loadProfile();
+      // Load profile, but it will handle token expiration gracefully
+      get()
+        .loadProfile()
+        .catch(() => {
+          // If profile loading fails, token will be cleared by loadProfile
+        });
     }
   },
 
@@ -55,6 +63,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const authProfile: AuthUserProfile = {
         username: profile.username,
         email: profile.email,
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        middle_initial: profile.profile?.middle_initial || '',
         bio: profile.profile?.bio || '',
         location: '', // Backend doesn't have location field yet
         avatar: avatarUrl,
@@ -68,7 +79,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } catch (error) {
       console.error('Failed to load profile:', error);
-      // Fallback to localStorage if API fails
+
+      // If token is invalid (403/401), clear it and logout
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (
+        errorMessage.includes('token') ||
+        errorMessage.includes('Token') ||
+        errorMessage.includes('403') ||
+        errorMessage.includes('401')
+      ) {
+        console.log('Token is invalid or expired, clearing authentication');
+        get().logout();
+        return;
+      }
+
+      // Fallback to localStorage if API fails for other reasons
       if (typeof window !== 'undefined') {
         const savedProfile = localStorage.getItem('userProfile');
         if (savedProfile) {
@@ -85,7 +110,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (username, password) => {
     const response = await fetch(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/token/`,
+      `${import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/token/`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,9 +141,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const updateData: UpdateProfileData = {
         username: profileData.username,
         email: profileData.email,
+        first_name: profileData.first_name,
+        last_name: profileData.last_name,
         profile: {
           bio: profileData.bio,
-          photo: profileData.avatar instanceof File ? profileData.avatar : profileData.avatar,
+          middle_initial: profileData.middle_initial || null,
+          // Only include photo if it's a File (new upload), otherwise omit it (keep existing)
+          ...(profileData.avatar instanceof File && { photo: profileData.avatar }),
         },
       };
 
@@ -138,6 +167,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const authProfile: AuthUserProfile = {
         username: updatedProfile.username,
         email: updatedProfile.email,
+        first_name: updatedProfile.first_name || '',
+        last_name: updatedProfile.last_name || '',
+        middle_initial: updatedProfile.profile?.middle_initial || '',
         bio: updatedProfile.profile?.bio || '',
         location: '', // Backend doesn't have location field yet
         avatar: avatarUrl,
@@ -158,7 +190,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   requestPasswordReset: async email => {
     // Adjust endpoint to your backend (Django example path)
     const response = await fetch(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/password-reset/`,
+      `${import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/password-reset/`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -174,7 +206,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signup: async ({ email, username, password }) => {
     // Adjust endpoint to your backend (Django example path)
     const response = await fetch(
-      `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/signup/`,
+      `${import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/signup/`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

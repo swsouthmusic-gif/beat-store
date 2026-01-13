@@ -110,28 +110,21 @@
       transition: all 0.2s ease;
       border-radius: 50%;
 
-      &:hover {
+      &:hover:not(.play-pause-btn) {
         color: #ffffff;
         background-color: rgba(255, 255, 255, 0.1);
-        transform: scale(1.1);
+        transform: scale(1.04);
+      }
+
+      &:hover.play-pause-btn {
+        color: #ffffff;
+        transform: scale(1.05);
       }
 
       &.play-pause-btn {
-        background: linear-gradient(135deg, #1db954 0%, #1ed760 100%);
         color: #ffffff;
         width: 56px;
         height: 56px;
-        box-shadow:
-          0 4px 16px rgba(29, 185, 84, 0.4),
-          0 0 0 1px rgba(29, 185, 84, 0.2);
-
-        &:hover {
-          background: linear-gradient(135deg, #1ed760 0%, #1db954 100%);
-          transform: scale(1.05);
-          box-shadow:
-            0 6px 20px rgba(29, 185, 84, 0.5),
-            0 0 0 1px rgba(29, 185, 84, 0.3);
-        }
 
         .play-icon,
         .pause-icon {
@@ -176,11 +169,9 @@
 
       .progress-bar {
         height: 100%;
-        background: linear-gradient(90deg, #1db954 0%, #1ed760 100%);
-        border-radius: 3px;
+        border-radius: 100px;
         transition: width 0.1s ease;
         position: relative;
-        box-shadow: 0 0 8px rgba(29, 185, 84, 0.4);
 
         &::after {
           content: '';
@@ -212,12 +203,14 @@
   // Responsive Design
   @media (max-width: 768px) {
     bottom: 16px;
-    width: 95%;
+    width: auto;
+    max-width: 95%;
     padding: 16px 20px;
     gap: 16px;
 
     .beat-info {
       gap: 12px;
+      min-width: auto;
 
       .cover-art {
         width: 48px;
@@ -273,7 +266,8 @@
 
   @media (max-width: 480px) {
     bottom: 12px;
-    width: 98%;
+    width: auto;
+    max-width: 98%;
     padding: 14px 16px;
     gap: 12px;
     border-radius: 20px;

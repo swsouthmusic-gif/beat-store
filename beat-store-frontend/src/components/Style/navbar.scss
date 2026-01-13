@@ -1,13 +1,195 @@
+@keyframes rotate-cover {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .layout {
   .navbar {
-    background-color: transparent;
-    background-image: none;
-    box-shadow: none;
-    padding-top: 12px;
-    .profile-btn {
-      .avatar {
-        width: 32px;
-        height: 32px;
+    &.sidebar {
+      position: fixed;
+      left: 20px;
+      top: 120px;
+      width: 64px;
+      height: auto;
+      min-height: auto;
+      background-color: rgba(40, 40, 40, 0.2);
+      backdrop-filter: blur(20px);
+      border-radius: 100px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.02);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 8px;
+      z-index: 1000;
+      transition: all ease-in-out 0.3s;
+
+      @media (max-width: 768px) {
+        position: relative;
+        left: auto;
+        top: auto;
+        width: 100%;
+        min-height: auto;
+        padding: 8px;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      &:hover {
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+      }
+
+      .sidebar-header {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: auto;
+
+        h6 {
+          writing-mode: vertical-rl;
+          text-orientation: mixed;
+          color: #fff;
+          font-size: 1.25rem;
+          letter-spacing: 2px;
+
+          @media (max-width: 768px) {
+            font-size: 1.1rem;
+            letter-spacing: 1.5px;
+          }
+
+          @media (max-width: 480px) {
+            font-size: 1rem;
+            letter-spacing: 1px;
+          }
+        }
+      }
+
+      .sidebar-nav {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: auto;
+
+        @media (max-width: 768px) {
+          flex-direction: row;
+          margin-bottom: 0;
+        }
+
+        .nav-icon {
+          width: 48px;
+          height: 48px;
+          color: rgba(255, 255, 255, 0.6);
+          transition: all ease-in-out 0.2s;
+          border-radius: 100px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          @media (max-width: 768px) {
+            width: 44px;
+            height: 44px;
+          }
+
+          @media (max-width: 480px) {
+            width: 40px;
+            height: 40px;
+          }
+
+          &:hover {
+            color: rgba(255, 255, 255, 0.9);
+            background-color: rgba(255, 255, 255, 0.05);
+          }
+
+          &.active {
+            color: #1db954;
+            background-color: rgba(29, 185, 84, 0.15);
+            border: 1px solid rgba(29, 185, 84, 0.3);
+
+            &:hover {
+              background-color: rgba(29, 185, 84, 0.2);
+              border-color: rgba(29, 185, 84, 0.4);
+            }
+          }
+        }
+      }
+
+      .sidebar-footer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 40px;
+        gap: 12px;
+        margin-top: auto;
+
+        @media (max-width: 768px) {
+          flex-direction: row;
+          padding-top: 0;
+          margin-top: 0;
+          gap: 8px;
+        }
+
+        .cover-art-btn {
+          width: 48px;
+          height: 48px;
+          padding: 0;
+          overflow: hidden;
+          border: 2px solid rgba(255, 255, 255, 0.1);
+          transition: all ease-in-out 0.2s;
+
+          @media (max-width: 768px) {
+            width: 44px;
+            height: 44px;
+          }
+
+          @media (max-width: 480px) {
+            width: 40px;
+            height: 40px;
+          }
+
+          &:hover:not(.rotating) {
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+          }
+
+          &.rotating {
+            animation: rotate-cover 4s linear infinite;
+          }
+
+          &:hover.rotating {
+            border-color: rgba(255, 255, 255, 0.3);
+          }
+        }
+
+        .profile-btn {
+          padding: 0;
+          .avatar {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            transition: all ease-in-out 0.2s;
+
+            @media (max-width: 768px) {
+              width: 36px;
+              height: 36px;
+            }
+
+            @media (max-width: 480px) {
+              width: 32px;
+              height: 32px;
+            }
+
+            &:hover {
+              border-color: rgba(255, 255, 255, 0.3);
+              transform: scale(1.05);
+            }
+          }
+        }
       }
     }
   }

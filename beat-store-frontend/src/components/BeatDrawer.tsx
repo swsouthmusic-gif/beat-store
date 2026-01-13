@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { get30SecondSnippetUrl, releaseBlobUrl } from '@/utils/audioUtils';
 
 import {
   Box,
@@ -10,6 +11,7 @@ import {
   useColorScheme,
   Modal,
   TextField,
+  Skeleton,
 } from '@mui/material';
 import {
   Close,
@@ -35,9 +37,14 @@ import Waveform from '@/components/Waveform';
 import LegalAgreementStep from '@/components/LegalAgreementStep';
 import CheckoutStep from '@/components/CheckoutStep';
 import DownloadLoading from '@/components/DownloadLoading';
+import EditProfile from '@/components/EditProfile';
+import AlreadyPurchasedModal from '@/components/AlreadyPurchasedModal';
 
 import { genreColors } from '@/constants/genreColors';
 import { iconTypeMap, levelColorMap, levelLabelMap } from '@/constants/licenseMaps';
+import { useCheckPurchaseQuery, useDownloadBeatMutation } from '@/store/beatApi';
+import JSZip from 'jszip';
+import { generateLicenseAgreementPDF } from '@/utils/pdfUtils';
 import '@/components/Style/beatdrawer.scss';
 
 interface BeatDrawerProps {
@@ -95,6 +102,16 @@ const lightenColor = (rgbStr: string, factor = 0.2) => {
   return `rgb(${r}, ${g}, ${b})`;
 };
 
+const darkenColor = (rgbStr: string, factor = 0.5) => {
+  const match = rgbStr.match(/\d+/g);
+  if (!match || match.length < 3) return rgbStr;
+  let [r, g, b] = match.map(Number);
+  r = Math.max(0, Math.round(r * (1 - factor)));
+  g = Math.max(0, Math.round(g * (1 - factor)));
+  b = Math.max(0, Math.round(b * (1 - factor)));
+  return `rgb(${r}, ${g}, ${b})`;
+};
+
 // const levelLabelDescription = {
 //   mp3: 'Lightweight MP3 — perfect for quick drafts and casual listening.',
 //   wav: 'Uncompressed WAV — crisp, clean sound for polished demos.',
@@ -118,6 +135,7 @@ const BeatDrawer = ({
   onRequestAuth,
 }: BeatDrawerProps) => {
   const { mode } = useColorScheme();
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
 
   const [dominantColor, setDominantColor] = useState<string | null>(null);
   const [showAgreement, setShowAgreement] = useState(false);
@@ -125,6 +143,7 @@ const BeatDrawer = ({
   const [showSelectionError, setShowSelectionError] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [showAgreementError, setShowAgreementError] = useState(false);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
 
   const { show } = useToastStore();
 
@@ -134,13 +153,32 @@ const BeatDrawer = ({
   const isCurrent = beat?.id === currentBeatId;
 
   // Authentication state
-  const { login, isLoggedIn } = useAuthStore();
+  const { login, isLoggedIn, userProfile } = useAuthStore();
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Download state
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showAlreadyPurchasedModal, setShowAlreadyPurchasedModal] = useState(false);
+
+  // Waveform loading state
+  const [isWaveformLoading, setIsWaveformLoading] = useState(true);
+  const waveformLoadStartTime = useRef<number | null>(null);
+
+  // Download mutation
+  const [downloadBeat, { isLoading: isDownloadingBeat }] = useDownloadBeatMutation();
+
+  // Check if beat was already purchased when drawer opens
+  const { data: purchaseCheck } = useCheckPurchaseQuery(
+    {
+      beatId: beat?.id ?? 0,
+      downloadType: selectedDownloadType ?? 'mp3',
+    },
+    {
+      skip: !beat || !selectedDownloadType || !isLoggedIn || !open,
+    },
+  );
 
   const selectedLicense =
     selectedDownloadType && beat
@@ -153,19 +191,116 @@ const BeatDrawer = ({
         }
       : null;
 
+  // State for frontend-generated snippet URL
+  const [frontendSnippetUrl, setFrontendSnippetUrl] = useState<string | null>(null);
+  const snippetUrlRef = useRef<string | null>(null);
+
+  // Generate 30-second snippet from mp3_file if snippet_mp3 doesn't exist
+  useEffect(() => {
+    // Release previous blob URL reference if it exists
+    if (snippetUrlRef.current) {
+      releaseBlobUrl(snippetUrlRef.current);
+      snippetUrlRef.current = null;
+    }
+
+    if (!beat) {
+      setFrontendSnippetUrl(null);
+      return;
+    }
+
+    if (beat.snippet_mp3) {
+      // Backend snippet exists, use it
+      setFrontendSnippetUrl(null);
+    } else if (beat.mp3_file) {
+      // Generate 30-second snippet from mp3_file in frontend
+      get30SecondSnippetUrl(beat.mp3_file)
+        .then(url => {
+          if (url) {
+            snippetUrlRef.current = url;
+            setFrontendSnippetUrl(url);
+          }
+        })
+        .catch(error => {
+          console.error(`Failed to create snippet for "${beat.name}":`, error);
+        });
+    } else {
+      setFrontendSnippetUrl(null);
+    }
+
+    // Cleanup: release blob URL reference when component unmounts or URL changes
+    return () => {
+      if (snippetUrlRef.current) {
+        releaseBlobUrl(snippetUrlRef.current);
+        snippetUrlRef.current = null;
+      }
+    };
+  }, [beat?.snippet_mp3, beat?.mp3_file, beat?.name]);
+
+  // Use snippet_mp3 if available, otherwise use frontend-generated snippet, fallback to mp3_file
+  const audioUrl = beat ? beat.snippet_mp3 || frontendSnippetUrl || beat.mp3_file || null : null;
+
+  // Generate consistent random background color for fallback
+  const fallbackColor = useMemo(() => {
+    if (!beat?.name) return 'hsl(0, 0%, 50%)';
+    let hash = 0;
+    for (let i = 0; i < beat.name.length; i++) {
+      hash = beat.name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    const saturation = 60 + (Math.abs(hash) % 20);
+    const lightness = 45 + (Math.abs(hash) % 15);
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  }, [beat?.name]);
+
+  // Convert HSL to RGB for color manipulation
+  const hslToRgb = (hsl: string): string => {
+    const match = hsl.match(/\d+/g);
+    if (!match || match.length < 3) return 'rgb(121, 121, 121)';
+    const h = parseInt(match[0]) / 360;
+    const s = parseInt(match[1]) / 100;
+    const l = parseInt(match[2]) / 100;
+
+    let r, g, b;
+    if (s === 0) {
+      r = g = b = l;
+    } else {
+      const hue2rgb = (p: number, q: number, t: number) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+      };
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1 / 3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1 / 3);
+    }
+    return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
+  };
+
   const handlePlayPause = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!beat) return;
+    if (!beat || !audioUrl) return;
     if (!isCurrent) {
-      setBeat(beat.id, beat.snippet_mp3);
+      setBeat(beat.id, audioUrl);
     } else {
       isPlaying ? pause() : play();
     }
   };
 
   useEffect(() => {
-    if (!beat?.cover_art) {
+    if (!beat) {
       setDominantColor(null);
+      return;
+    }
+
+    // If no cover art, use fallback color as dominant color
+    if (!beat.cover_art) {
+      const rgbFallback = hslToRgb(fallbackColor);
+      setDominantColor(rgbFallback);
       return;
     }
 
@@ -176,15 +311,141 @@ const BeatDrawer = ({
 
     img.onload = () => {
       try {
-        const ct = new ColorThief();
-        const [r, g, b] = ct.getColor(img, 25);
-        setDominantColor(`rgb(${r}, ${g}, ${b})`);
+        // Ensure image is fully loaded
+        if (img.complete && img.naturalWidth > 0) {
+          const ct = new ColorThief();
+          const [r, g, b] = ct.getColor(img, 25);
+          setDominantColor(`rgb(${r}, ${g}, ${b})`);
+        } else {
+          // Fallback to generated color if image not ready
+          const rgbFallback = hslToRgb(fallbackColor);
+          setDominantColor(rgbFallback);
+        }
       } catch {
-        setDominantColor(null);
+        // Fallback to generated color on error
+        const rgbFallback = hslToRgb(fallbackColor);
+        setDominantColor(rgbFallback);
       }
     };
-    img.onerror = () => setDominantColor(null);
-  }, [beat?.cover_art]);
+    img.onerror = () => {
+      // Fallback to generated color on load error
+      const rgbFallback = hslToRgb(fallbackColor);
+      setDominantColor(rgbFallback);
+    };
+  }, [beat?.cover_art, beat, fallbackColor]);
+
+  // Screen size detection
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const width = window.innerWidth;
+      setIsSmallScreen(width <= 768);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Show already purchased modal when purchase is detected, hide main drawer
+  useEffect(() => {
+    if (open && purchaseCheck?.has_purchase === true && isLoggedIn && selectedDownloadType) {
+      setShowAlreadyPurchasedModal(true);
+    } else if (!open || !purchaseCheck?.has_purchase) {
+      setShowAlreadyPurchasedModal(false);
+    }
+  }, [open, purchaseCheck?.has_purchase, isLoggedIn, selectedDownloadType]);
+
+  // Handle download for already purchased beat
+  const handleDownload = useCallback(async () => {
+    if (!beat || !selectedDownloadType) return;
+
+    try {
+      setIsDownloading(true);
+
+      // Use RTK Query mutation for download
+      const beatBlob = await downloadBeat({
+        beatId: beat.id,
+        downloadType: selectedDownloadType,
+      }).unwrap();
+
+      // Generate License Agreement PDF
+      const fullName = userProfile
+        ? [
+            userProfile.first_name,
+            userProfile.middle_initial ? `${userProfile.middle_initial}.` : null,
+            userProfile.last_name,
+          ]
+            .filter(Boolean)
+            .join(' ')
+        : 'User';
+
+      const pdfBlob = generateLicenseAgreementPDF({
+        beatName: beat.name,
+        downloadType: selectedDownloadType,
+        signatureName: fullName,
+        date: new Date().toLocaleDateString(),
+      });
+
+      // Create zip file
+      const zip = new JSZip();
+
+      // Add beat file to zip
+      const fileExtension = selectedDownloadType === 'stems' ? 'zip' : selectedDownloadType;
+      const beatFileName = `${beat.name}_${selectedDownloadType}.${fileExtension}`;
+      zip.file(beatFileName, beatBlob);
+
+      // Add PDF to zip
+      zip.file('License_Agreement.pdf', pdfBlob);
+
+      // Generate zip blob
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+      // Create blob URL and trigger download
+      const blobUrl = window.URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `${beat.name}_${selectedDownloadType}_with_license.zip`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Download failed:', err);
+      show('Download failed. Please try again.', 'error');
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [beat, selectedDownloadType, downloadBeat, userProfile, show]);
+
+  // Manage waveform loading state with minimum 500ms display time
+  useEffect(() => {
+    if (open && audioUrl) {
+      setIsWaveformLoading(true);
+      waveformLoadStartTime.current = Date.now();
+    } else {
+      setIsWaveformLoading(false);
+    }
+  }, [open, audioUrl]);
+
+  // Handle waveform ready callback with minimum 500ms display time
+  const handleWaveformReady = () => {
+    if (waveformLoadStartTime.current) {
+      const elapsed = Date.now() - waveformLoadStartTime.current;
+      const minDisplayTime = 500;
+      const remainingTime = Math.max(0, minDisplayTime - elapsed);
+
+      setTimeout(() => {
+        setIsWaveformLoading(false);
+        waveformLoadStartTime.current = null;
+      }, remainingTime);
+    } else {
+      setIsWaveformLoading(false);
+    }
+  };
 
   // Cleanup effect to prevent glitches
   useEffect(() => {
@@ -200,6 +461,7 @@ const BeatDrawer = ({
       setLoginForm({ username: '', password: '' });
       setLoginError(null);
       setIsLoggingIn(false);
+      setShowAlreadyPurchasedModal(false);
     }
   }, [open, setSelectedDownloadType]);
 
@@ -216,6 +478,7 @@ const BeatDrawer = ({
     setLoginForm({ username: '', password: '' });
     setLoginError(null);
     setIsLoggingIn(false);
+    setShowAlreadyPurchasedModal(false);
 
     // Call the parent's onClose function
     onClose();
@@ -243,49 +506,95 @@ const BeatDrawer = ({
 
   return (
     <>
+      {/* Already Purchased Modal */}
+      <AlreadyPurchasedModal
+        open={showAlreadyPurchasedModal}
+        onClose={() => {
+          setShowAlreadyPurchasedModal(false);
+          handleClose(); // Close the drawer when modal closes
+        }}
+        beat={beat ?? null}
+        downloadType={selectedDownloadType ?? null}
+        onDownload={handleDownload}
+        onUpgrade={(upgradeType: 'wav' | 'stems') => {
+          setShowAlreadyPurchasedModal(false);
+          setSelectedDownloadType(upgradeType);
+          // The drawer will remain open with the new download type selected
+        }}
+        isDownloading={isDownloading || isDownloadingBeat}
+      />
+
       {/* Download Loading Overlay */}
       <DownloadLoading
-        isVisible={isDownloading}
+        isVisible={isDownloading || isDownloadingBeat}
         downloadType={selectedDownloadType || 'mp3'}
         beatName={beat?.name || 'Beat'}
       />
 
       <Modal
-        open={open && !!beat}
+        open={
+          open &&
+          !!beat &&
+          !(purchaseCheck?.has_purchase === true && isLoggedIn && selectedDownloadType)
+        }
         onClose={handleClose}
         aria-labelledby="beat-drawer-modal-title"
         aria-describedby="beat-drawer-modal-description"
         sx={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: isSmallScreen ? 'flex-start' : 'center',
           justifyContent: 'center',
         }}
         slotProps={{
           backdrop: {
             style: {
-              background: 'rgba(0, 0, 0, 0.1)',
-              backdropFilter: 'blur(2px) saturate(160%)',
+              background: dominantColor
+                ? `linear-gradient(to bottom, ${alpha(dominantColor, 0.2)} 0%, ${alpha(dominantColor, 0)} 50%, rgba(0, 0, 0, ${isSmallScreen ? 0.9 : 0}) 100%)`
+                : isSmallScreen
+                  ? 'rgba(0, 0, 0, 0.2)'
+                  : 'rgba(0, 0, 0, 0)',
+              backdropFilter: isSmallScreen ? 'blur(8px)' : 'blur(2px) saturate(160%)',
             },
           },
         }}
       >
-        <Box className="beat-drawer">
+        <Box
+          className="beat-drawer"
+          sx={{
+            ...(isSmallScreen && {
+              width: '100%',
+              height: '100%',
+              maxWidth: '100%',
+              maxHeight: '100%',
+              margin: 0,
+              borderRadius: 0,
+            }),
+          }}
+        >
           {beat && (
             <Box
               className="drawer-content"
               sx={{
                 p: 2,
-                borderRadius: '12px',
-                backdropFilter: 'blur(12px)',
+                borderRadius: isSmallScreen ? 0 : '12px',
+                backdropFilter: 'blur(16px)',
                 display: 'flex',
                 flexDirection: 'column',
+                background: dominantColor
+                  ? `linear-gradient(to bottom, ${alpha(darkenColor(dominantColor, 0.7), 1)} 0%, rgba(var(--beat-palette-background-defaultChannel) / .6) 66%)`
+                  : mode === 'dark'
+                    ? 'rgba(0, 0, 0, 0.2)'
+                    : 'rgba(188, 188, 188, 0.2)',
                 color: '#fff',
+                ...(isSmallScreen && {
+                  height: '100%',
+                  overflow: 'auto',
+                }),
                 '&::before': {
                   content: '""',
                   position: 'absolute',
                   inset: 0,
-                  background: mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(188, 188, 188, 0.2)',
-                  borderRadius: '12px',
+                  borderRadius: isSmallScreen ? 0 : '12px',
                   zIndex: 0,
                 },
                 '& > :not(.no-positioning)': {
@@ -300,15 +609,42 @@ const BeatDrawer = ({
               {!showAgreement && !showCheckout ? (
                 <>
                   <Box className="beat-drawer-header">
-                    <img
-                      ref={imgRef}
-                      src={beat.cover_art}
-                      alt={beat.name}
-                      crossOrigin="anonymous"
-                      className="beat-cover-art"
-                    />
+                    {beat.cover_art ? (
+                      <img
+                        ref={imgRef}
+                        src={beat.cover_art ?? undefined}
+                        alt={beat.name}
+                        crossOrigin="anonymous"
+                        className="beat-cover-art"
+                        style={isSmallScreen ? { transform: 'scale(0.9)' } : undefined}
+                      />
+                    ) : (
+                      <Box
+                        className="beat-cover-art"
+                        sx={{
+                          width: '100%',
+                          height: '100%',
+                          backgroundColor: fallbackColor,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#fff',
+                          textAlign: 'center',
+                          padding: '16px',
+                          fontSize: isSmallScreen ? '14px' : '18px',
+                          fontWeight: 600,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {beat.name}
+                      </Box>
+                    )}
                     <Box className="info">
-                      <Typography variant="h6" fontSize="20px" color="text.primary">
+                      <Typography
+                        variant="h6"
+                        fontSize={isSmallScreen ? '16px' : '20px'}
+                        color="text.primary"
+                      >
                         {beat.name}
                       </Typography>
                       <Box className="meta-info">
@@ -318,9 +654,17 @@ const BeatDrawer = ({
                           className="genre-chep"
                           sx={{
                             backgroundColor: genreColors[beat.genre],
+                            fontSize: isSmallScreen ? '0.7rem' : undefined,
                           }}
                         />
-                        <Typography variant="body2" color="text.primary" sx={{ opacity: '.8' }}>
+                        <Typography
+                          variant="body2"
+                          color="text.primary"
+                          sx={{
+                            opacity: '.8',
+                            fontSize: isSmallScreen ? '0.75rem' : undefined,
+                          }}
+                        >
                           {beat.bpm} BPM • {beat.scale}
                         </Typography>
                       </Box>
@@ -331,10 +675,13 @@ const BeatDrawer = ({
                       className="play-btn"
                       onClick={handlePlayPause}
                       sx={{
+                        opacity: 0.8,
+                        transition: 'all ease-in-out 0.2s',
                         backgroundColor: dominantColor,
                         '&:hover': {
+                          opacity: 1,
                           backgroundColor: dominantColor
-                            ? rgbStringToRgba(dominantColor, 0.2) // dark overlay from extracted color
+                            ? rgbStringToRgba(dominantColor, 1) // dark overlay from extracted color
                             : 'rgba(18, 18, 18, 0.2)', // fallback with alpha
                         },
                       }}
@@ -342,26 +689,62 @@ const BeatDrawer = ({
                       {isCurrent && isPlaying ? (
                         <PauseRounded
                           sx={{
-                            fontSize: 32,
+                            fontSize: isSmallScreen ? 24 : 32,
                             color: '#FFF',
                           }}
                         />
                       ) : (
                         <PlayArrowRounded
                           sx={{
-                            fontSize: 32,
+                            fontSize: isSmallScreen ? 24 : 32,
                             color: '#FFF',
                           }}
                         />
                       )}
                     </IconButton>
-                    <Waveform
-                      url={beat.snippet_mp3}
-                      isCurrent={isCurrent}
-                      height={40}
-                      progressColor={'#ffffff'}
-                      waveColor={'#8F8F8F'}
-                    />
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: 40,
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      {isWaveformLoading && (
+                        <Skeleton
+                          variant="circular"
+                          width="100%"
+                          animation="wave"
+                          height={36}
+                          sx={{
+                            borderRadius: '100px',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                          }}
+                        />
+                      )}
+                      <Box
+                        sx={{
+                          width: '100%',
+                          opacity: isWaveformLoading ? 0 : 1,
+                          transition: 'opacity 0.5s ease-in-out',
+                        }}
+                      >
+                        {audioUrl && beat && (
+                          <Waveform
+                            url={audioUrl}
+                            isCurrent={isCurrent}
+                            beatId={beat.id}
+                            height={isSmallScreen ? 32 : 40}
+                            progressColor={'#ffffff'}
+                            waveColor={'#8F8F8F'}
+                            onReady={handleWaveformReady}
+                          />
+                        )}
+                      </Box>
+                    </Box>
                   </Box>
                   <Box className="summary">
                     {/* License Package Chip */}
@@ -372,7 +755,7 @@ const BeatDrawer = ({
                           backgroundColor: levelColorMap[selectedDownloadType] + '20',
                           color: levelColorMap[selectedDownloadType],
                           fontWeight: 600,
-                          fontSize: '0.875rem',
+                          fontSize: isSmallScreen ? '0.75rem' : '0.875rem',
                           border: `1px solid ${levelColorMap[selectedDownloadType]}40`,
                         }}
                       />
@@ -388,33 +771,30 @@ const BeatDrawer = ({
                         justifyContent: 'center',
                       }}
                     >
-                      {selectedDownloadType ? (
-                        iconTypeMap[selectedDownloadType].map((iconType, index) => (
-                          <Chip
-                            key={index}
-                            label={iconType.toUpperCase()}
-                            size="small"
-                            sx={{
-                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                              color: 'rgba(255, 255, 255, 0.8)',
-                              fontSize: '0.75rem',
-                              fontWeight: 500,
-                            }}
-                          />
-                        ))
-                      ) : (
-                        <Typography
-                          variant="body2"
-                          sx={{ color: 'rgba(255, 255, 255, 0.5)', fontStyle: 'italic' }}
-                        >
-                          Choose a license
-                        </Typography>
-                      )}
+                      {selectedDownloadType
+                        ? iconTypeMap[selectedDownloadType].map((iconType, index) => (
+                            <Chip
+                              key={index}
+                              label={iconType.toUpperCase()}
+                              size="small"
+                              sx={{
+                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                fontSize: isSmallScreen ? '0.65rem' : '0.75rem',
+                                fontWeight: 500,
+                              }}
+                            />
+                          ))
+                        : null}
                     </Box>
 
                     {/* Total Price */}
                     <Box className="total-price-container">
-                      <Typography variant="body2" className="total-price-label">
+                      <Typography
+                        variant="body2"
+                        className="total-price-label"
+                        sx={{ fontSize: isSmallScreen ? '0.8rem' : undefined }}
+                      >
                         Total:
                       </Typography>
                       <Typography
@@ -424,6 +804,7 @@ const BeatDrawer = ({
                           color: selectedDownloadType
                             ? levelColorMap[selectedDownloadType]
                             : 'rgba(255, 255, 255, 0.5)',
+                          fontSize: isSmallScreen ? '1rem' : undefined,
                         }}
                       >
                         {selectedDownloadType ? `$${beat[priceMap[selectedDownloadType]]}` : ''}
@@ -447,7 +828,7 @@ const BeatDrawer = ({
                         color="text.primary"
                         sx={{
                           fontWeight: 600,
-                          fontSize: '1.25rem',
+                          fontSize: isSmallScreen ? '1rem' : '1.25rem',
                           textAlign: 'left',
                           mb: 2,
                           width: '100%',
@@ -488,7 +869,7 @@ const BeatDrawer = ({
                             borderRadius: '12px',
                             textTransform: 'none' as const,
                             fontWeight: 500,
-                            fontSize: '0.875rem',
+                            fontSize: isSmallScreen ? '0.75rem' : '0.875rem',
                             border: '1px solid rgba(255, 255, 255, 0.12)',
                             bgcolor: 'rgba(255, 255, 255, 0.04)',
                             color: 'rgba(255, 255, 255, .7)',
@@ -534,7 +915,7 @@ const BeatDrawer = ({
                             borderRadius: '12px',
                             textTransform: 'none' as const,
                             fontWeight: 500,
-                            fontSize: '0.875rem',
+                            fontSize: isSmallScreen ? '0.75rem' : '0.875rem',
                             border: '1px solid rgba(255, 255, 255, 0.12)',
                             bgcolor: 'rgba(255, 255, 255, 0.04)',
                             color: 'rgba(255, 255, 255, .7)',
@@ -580,7 +961,7 @@ const BeatDrawer = ({
                             borderRadius: '12px',
                             textTransform: 'none' as const,
                             fontWeight: 500,
-                            fontSize: '0.875rem',
+                            fontSize: isSmallScreen ? '0.75rem' : '0.875rem',
                             border: '1px solid rgba(255, 255, 255, 0.12)',
                             bgcolor: 'rgba(255, 255, 255, 0.04)',
                             color: 'rgba(255, 255, 255, .7)',
@@ -651,14 +1032,14 @@ const BeatDrawer = ({
                               },
                               input: {
                                 color: '#fff',
-                                fontSize: '0.875rem',
+                                fontSize: isSmallScreen ? '0.8rem' : '0.875rem',
                                 py: 1.5,
                                 px: 2,
                               },
                             },
                             '& .MuiInputLabel-root': {
                               color: 'rgba(255, 255, 255, 0.6)',
-                              fontSize: '0.875rem',
+                              fontSize: isSmallScreen ? '0.8rem' : '0.875rem',
                             },
                           }}
                         />
@@ -687,14 +1068,14 @@ const BeatDrawer = ({
                               },
                               input: {
                                 color: '#fff',
-                                fontSize: '0.875rem',
+                                fontSize: isSmallScreen ? '0.8rem' : '0.875rem',
                                 py: 1.5,
                                 px: 2,
                               },
                             },
                             '& .MuiInputLabel-root': {
                               color: 'rgba(255, 255, 255, 0.6)',
-                              fontSize: '0.875rem',
+                              fontSize: isSmallScreen ? '0.8rem' : '0.875rem',
                             },
                           }}
                         />
@@ -708,7 +1089,7 @@ const BeatDrawer = ({
                             borderRadius: '12px',
                             textTransform: 'none' as const,
                             fontWeight: 600,
-                            fontSize: '0.875rem',
+                            fontSize: isSmallScreen ? '0.8rem' : '0.875rem',
                             bgcolor: '#fff',
                             color: '#000',
                             '&:hover': {
@@ -757,7 +1138,7 @@ const BeatDrawer = ({
                             sx={{
                               textTransform: 'none',
                               color: 'rgba(255, 255, 255, 0.7)',
-                              fontSize: '0.875rem',
+                              fontSize: isSmallScreen ? '0.75rem' : '0.875rem',
                               '&:hover': { color: '#fff' },
                             }}
                             onClick={() => {
@@ -774,7 +1155,7 @@ const BeatDrawer = ({
                             sx={{
                               textTransform: 'none',
                               color: 'rgba(255, 255, 255, 0.7)',
-                              fontSize: '0.875rem',
+                              fontSize: isSmallScreen ? '0.75rem' : '0.875rem',
                               '&:hover': { color: '#fff' },
                             }}
                             onClick={() => {
@@ -793,21 +1174,26 @@ const BeatDrawer = ({
                         variant="subtitle1"
                         gutterBottom
                         color="text.primary"
-                        sx={{ paddingLeft: '20px', paddingBottom: '8px' }}
+                        sx={{
+                          paddingLeft: '20px',
+                          paddingBottom: '8px',
+                          fontSize: isSmallScreen ? '0.9rem' : undefined,
+                        }}
                       >
                         Licensing
                       </Typography>
                       <Box display="flex" className="levels-row">
                         {downloadTypes.map(type => {
                           const key = priceMap[type];
-                          const price = beat?.[key] ?? 'N/A';
+                          const price = beat?.[key] ?? 'Not Available';
                           const levelColor = levelColorMap[type];
                           const isSelected = selectedDownloadType === type;
+                          const isDisabled = price === 'Not Available';
 
                           return (
                             <Box
                               key={type}
-                              onClick={() => setSelectedDownloadType(type)}
+                              onClick={isDisabled ? undefined : () => setSelectedDownloadType(type)}
                               className="level-box"
                               sx={{
                                 display: 'flex',
@@ -817,7 +1203,7 @@ const BeatDrawer = ({
                                 flex: '1 1 0',
                                 minWidth: 0,
 
-                                cursor: 'pointer',
+                                cursor: isDisabled ? 'not-allowed' : 'pointer',
                                 gap: '4px',
                                 padding: '12px 12px 12px 12px',
                                 borderRadius: '12px',
@@ -828,30 +1214,51 @@ const BeatDrawer = ({
                                     ? toRgba(levelColor, 0.15)
                                     : 'rgba(18,18,18,0.1)'
                                   : 'transparent',
+                                opacity: isDisabled ? 0.5 : 1,
                                 transition: 'all 0.2s ease-in-out',
                                 ...(isSelected
                                   ? {}
                                   : {
-                                      '&:hover': {
-                                        backgroundColor: isSelected
-                                          ? levelColor
-                                            ? toRgba(levelColor, 0.15)
-                                            : 'rgba(18,18,18,0.1)'
-                                          : 'transparent',
-                                      },
+                                      '&:hover': isDisabled
+                                        ? {}
+                                        : {
+                                            backgroundColor: isSelected
+                                              ? levelColor
+                                                ? toRgba(levelColor, 0.15)
+                                                : 'rgba(18,18,18,0.1)'
+                                              : 'transparent',
+                                          },
                                     }),
                               }}
                             >
                               <Typography
                                 className="level-name"
-                                sx={{ color: isSelected ? `${levelColor}` : '#FFF' }}
+                                sx={{
+                                  color: isSelected ? `${levelColor}` : '#FFF',
+                                  fontSize: isSmallScreen ? '0.85rem' : undefined,
+                                  opacity: isDisabled ? 0.6 : 1,
+                                }}
                               >
                                 {levelLabelMap[type]}
                               </Typography>
-                              <Typography className="level-price" color="text.primary">
-                                ${price}
+                              <Typography
+                                className="level-price"
+                                color="text.primary"
+                                sx={{
+                                  fontSize: isSmallScreen ? '0.8rem' : undefined,
+                                  opacity: isDisabled ? 0.6 : 1,
+                                }}
+                              >
+                                {price}
                               </Typography>
-                              <Typography className="level-type" color="text.primary">
+                              <Typography
+                                className="level-type"
+                                color="text.primary"
+                                sx={{
+                                  fontSize: isSmallScreen ? '0.7rem' : undefined,
+                                  opacity: isDisabled ? 0.6 : 1,
+                                }}
+                              >
                                 {iconTypeMap[type].join(', ')}
                               </Typography>
                             </Box>
@@ -873,6 +1280,7 @@ const BeatDrawer = ({
                   selectedDownloadType={selectedDownloadType}
                   selectedLicense={selectedLicense}
                   playButton={playButton}
+                  onEditProfile={() => setEditProfileOpen(true)}
                 />
               ) : (
                 <CheckoutStep
@@ -917,6 +1325,7 @@ const BeatDrawer = ({
                     )}
                     <Button
                       className="continue-btn"
+                      disabled={!showAgreement && !showCheckout && !selectedDownloadType}
                       onClick={() => {
                         if (!isLoggedIn) {
                           setShowSelectionError(false);
@@ -927,11 +1336,16 @@ const BeatDrawer = ({
                           setShowSelectionError(true);
                           return;
                         }
-                        if (!agreed && showAgreement) {
-                          setShowAgreementError(true);
-                          return;
-                        }
-                        if (agreed && showAgreement) {
+                        if (showAgreement) {
+                          // Check if user has first_name and last_name
+                          if (!userProfile?.first_name?.trim() || !userProfile?.last_name?.trim()) {
+                            setShowAgreementError(true);
+                            return;
+                          }
+                          if (!agreed) {
+                            setShowAgreementError(true);
+                            return;
+                          }
                           setShowCheckout(true);
                           setShowAgreement(false);
                           return;
@@ -941,15 +1355,15 @@ const BeatDrawer = ({
                         setShowAgreementError(false);
                       }}
                       sx={{
-                        cursor: 'pointer',
-                        boxShadow: '0px 1px 4px rgba(0,0,0,0.2)',
                         border: `1px solid ${lightenColor(dominantColor ?? '#121212', 0.1)}`,
                         color: `${lightenColor(dominantColor ?? '#121212', 0.1)}`,
-                        '&:hover': {
-                          backgroundColor: alpha(
-                            lightenColor(dominantColor ?? '#121212', 0.1),
-                            0.2,
-                          ),
+                        backgroundColor: dominantColor
+                          ? alpha(dominantColor, 1)
+                          : 'rgba(29, 185, 84, 1)',
+                        '&:hover:not(:disabled)': {
+                          backgroundColor: dominantColor
+                            ? alpha(dominantColor, 1)
+                            : alpha('rgba(29, 185, 84, 1)', 0.9),
                         },
                       }}
                     >
@@ -981,6 +1395,9 @@ const BeatDrawer = ({
           )}
         </Box>
       </Modal>
+
+      {/* Edit Profile Modal */}
+      <EditProfile open={editProfileOpen} onClose={() => setEditProfileOpen(false)} />
     </>
   );
 };

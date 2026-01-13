@@ -11,25 +11,49 @@ import logging
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.contrib.auth.models import User
 from .models import Beat, Purchase, StripeWebhookEvent, UserProfile
 from .serializers import BeatSerializer, PurchaseSerializer, UserSerializer, UserRegistrationSerializer
 
-# Configure Stripe
-stripe.api_key = settings.STRIPE_SECRET_KEY
+# Initialize logger first
 logger = logging.getLogger(__name__)
+
+# Configure Stripe (only if key is available)
+if hasattr(settings, 'STRIPE_SECRET_KEY') and settings.STRIPE_SECRET_KEY:
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+else:
+    logger.warning("STRIPE_SECRET_KEY is not configured. Payment processing will not work.")
+
+
+class OptionalJWTAuthentication(JWTAuthentication):
+    """JWT Authentication that doesn't raise exceptions on invalid tokens.
+    Useful for public endpoints where invalid tokens should be treated as unauthenticated."""
+    
+    def authenticate(self, request):
+        try:
+            return super().authenticate(request)
+        except (InvalidToken, TokenError):
+            # Return None to indicate authentication failed, but don't raise an exception
+            # This allows the view to proceed with an unauthenticated user
+            return None
 
 class BeatViewSet(viewsets.ModelViewSet):
     queryset = Beat.objects.all().order_by('-created_at')
     serializer_class = BeatSerializer
     filterset_fields = ['genre', 'bpm', 'scale']
+    
+    # Use OptionalJWTAuthentication for all actions to handle invalid tokens gracefully
+    # Valid tokens will still authenticate, but invalid tokens won't cause 403 errors
+    authentication_classes = [OptionalJWTAuthentication]
 
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:  # allow public access to list and retrieve
             return [IsAuthenticatedOrReadOnly()]
-        if self.action in ["download", "purchase", "create_payment_intent", "confirm_payment"]:  # custom actions
+        if self.action in ["download", "purchase", "create_payment_intent", "confirm_payment", "check_purchase"]:  # custom actions
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -39,7 +63,7 @@ class BeatViewSet(viewsets.ModelViewSet):
         beat = self.get_object()
         download_type = request.data.get('download_type')
         price_paid = request.data.get('price_paid')
-        
+
         if not download_type or not price_paid:
             return Response(
                 {'error': 'download_type and price_paid are required'}, 
@@ -77,27 +101,20 @@ class BeatViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Check if user has a pending purchase for this beat/download type
-        pending_purchase = Purchase.objects.filter(
-            user=request.user,
-            beat=beat,
-            download_type=download_type,
-            payment_status='pending'
-        ).first()
+        # Note: We no longer create pending purchases, so we don't need to check for them
+        # Each payment intent creation is independent
         
-        if pending_purchase:
-            # Return the existing payment intent
-            try:
-                intent = stripe.PaymentIntent.retrieve(pending_purchase.stripe_payment_intent_id)
-                return Response({
-                    'client_secret': intent.client_secret,
-                    'payment_intent_id': intent.id,
-                    'purchase_id': pending_purchase.id
-                })
-            except stripe.error.StripeError as e:
-                logger.error(f"Error retrieving existing payment intent: {str(e)}")
-                # If we can't retrieve the existing intent, delete the pending purchase and create a new one
-                pending_purchase.delete()
+        # Check if Stripe is configured
+        if not hasattr(settings, 'STRIPE_SECRET_KEY') or not settings.STRIPE_SECRET_KEY:
+            logger.error("STRIPE_SECRET_KEY is not configured in settings")
+            return Response(
+                {'error': 'Payment processing is not configured. Please contact support.'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        # Ensure Stripe API key is set (in case it wasn't set at module level)
+        if not stripe.api_key:
+            stripe.api_key = settings.STRIPE_SECRET_KEY
         
         try:
             # Create Stripe Payment Intent
@@ -115,21 +132,12 @@ class BeatViewSet(viewsets.ModelViewSet):
                 },
             )
             
-            # Create pending purchase record
-            purchase = Purchase.objects.create(
-                user=request.user,
-                beat=beat,
-                download_type=download_type,
-                price_paid=price_paid,
-                payment_method='stripe',
-                payment_status='pending',
-                stripe_payment_intent_id=intent.id
-            )
+            # Don't create Purchase record yet - only create after payment succeeds
+            # The payment intent metadata contains all the info we need
             
             return Response({
                 'client_secret': intent.client_secret,
                 'payment_intent_id': intent.id,
-                'purchase_id': purchase.id
             })
             
         except stripe.error.StripeError as e:
@@ -149,9 +157,11 @@ class BeatViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def confirm_payment(self, request, pk=None):
-        """Confirm payment completion for a purchase"""
+        """Confirm payment completion and create purchase record"""
         beat = self.get_object()
         payment_intent_id = request.data.get('payment_intent_id')
+        download_type = request.data.get('download_type')
+        price_paid = request.data.get('price_paid')
         
         if not payment_intent_id:
             return Response(
@@ -160,18 +170,44 @@ class BeatViewSet(viewsets.ModelViewSet):
             )
         
         try:
-            # Find the purchase record
-            purchase = Purchase.objects.get(
+            # Verify payment intent with Stripe
+            if not hasattr(settings, 'STRIPE_SECRET_KEY') or not settings.STRIPE_SECRET_KEY:
+                return Response(
+                    {'error': 'Payment processing is not configured'}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+            if not stripe.api_key:
+                stripe.api_key = settings.STRIPE_SECRET_KEY
+            
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            
+            # Verify payment was successful
+            if intent.status != 'succeeded':
+                return Response(
+                    {'error': f'Payment intent status is {intent.status}, not succeeded'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if purchase already exists (might have been created by webhook)
+            purchase, created = Purchase.objects.get_or_create(
                 user=request.user,
                 beat=beat,
-                stripe_payment_intent_id=payment_intent_id
+                download_type=download_type or intent.metadata.get('download_type', 'mp3'),
+                defaults={
+                    'price_paid': price_paid or float(intent.amount) / 100,
+                    'payment_method': 'stripe',
+                    'payment_status': 'completed',
+                    'stripe_payment_intent_id': payment_intent_id,
+                }
             )
             
-            # Update payment status to completed
-            purchase.payment_status = 'completed'
-            purchase.save()
+            # If purchase already existed, update it
+            if not created:
+                purchase.payment_status = 'completed'
+                purchase.stripe_payment_intent_id = payment_intent_id
+                purchase.save()
             
-            logger.info(f"Payment manually confirmed for purchase {purchase.id}")
+            logger.info(f"Payment confirmed for purchase {purchase.id}")
             
             return Response({
                 'message': 'Payment confirmed successfully',
@@ -179,17 +215,70 @@ class BeatViewSet(viewsets.ModelViewSet):
                 'download_type': purchase.download_type
             })
             
-        except Purchase.DoesNotExist:
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error confirming payment: {e}")
             return Response(
-                {'error': 'Purchase not found for this payment intent'}, 
-                status=status.HTTP_404_NOT_FOUND
+                {'error': f'Stripe error: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
             logger.error(f"Error confirming payment: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return Response(
                 {'error': f'Error confirming payment: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=True, methods=['get'])
+    def check_purchase(self, request, pk=None):
+        """Check if user has already purchased this beat/download type"""
+        beat = self.get_object()
+        # Print full object details for debugging
+        print(f"Beat object: {beat}")
+        print(f"Beat ID: {beat.id}, Name: {beat.name}, Type: {type(beat)}")
+        download_type = request.query_params.get('type', 'mp3')
+        
+        # Validate download type
+        valid_types = ['mp3', 'wav', 'stems']
+        if download_type not in valid_types:
+            return Response(
+                {'error': f'Invalid download type. Must be one of {valid_types}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if user has completed purchase for this download type
+        purchase = Purchase.objects.filter(
+            user=request.user,
+            beat=beat,
+            download_type=download_type,
+            payment_status='completed'
+        ).first()
+        
+        # Log for debugging
+        logger.info(f"check_purchase: user={request.user.id}, beat={beat.id}, download_type={download_type}, found_purchase={purchase is not None}")
+        if purchase:
+            logger.info(f"Purchase found: id={purchase.id}, status={purchase.payment_status}")
+        else:
+            # Log all purchases for this user/beat to help debug
+            all_purchases = Purchase.objects.filter(
+                user=request.user,
+                beat=beat,
+                download_type=download_type
+            )
+            logger.info(f"No completed purchase found. All purchases for this user/beat/type: {list(all_purchases.values('id', 'payment_status', 'download_type'))}")
+        
+        if purchase:
+            return Response({
+                'has_purchase': True,
+                'purchase_id': purchase.id,
+                'download_type': purchase.download_type,
+                'purchased_at': purchase.created_at
+            })
+        else:
+            return Response({
+                'has_purchase': False
+            })
 
     @action(detail=True, methods=['get'])
     def download(self, request, pk=None):
@@ -302,19 +391,51 @@ def stripe_webhook(request):
         payment_intent_id = payment_intent['id']
         
         try:
-            # Find the purchase record
-            purchase = Purchase.objects.get(stripe_payment_intent_id=payment_intent_id)
-            purchase.payment_status = 'completed'
-            purchase.save()
+            # Get metadata from payment intent
+            metadata = payment_intent.get('metadata', {})
+            user_id = metadata.get('user_id')
+            beat_id = metadata.get('beat_id')
+            download_type = metadata.get('download_type', 'mp3')
+            amount = payment_intent.get('amount', 0) / 100  # Convert from cents
             
-            logger.info(f"Payment succeeded for purchase {purchase.id}")
+            if not user_id or not beat_id:
+                logger.error(f"Missing metadata in payment intent {payment_intent_id}")
+                return HttpResponse(status=200)  # Return 200 to prevent retry
+            
+            # Create or update purchase record
+            user = User.objects.get(id=int(user_id))
+            beat = Beat.objects.get(id=int(beat_id))
+            
+            purchase, created = Purchase.objects.get_or_create(
+                user=user,
+                beat=beat,
+                download_type=download_type,
+                defaults={
+                    'price_paid': amount,
+                    'payment_method': 'stripe',
+                    'payment_status': 'completed',
+                    'stripe_payment_intent_id': payment_intent_id,
+                }
+            )
+            
+            # If purchase already existed, update it
+            if not created:
+                purchase.payment_status = 'completed'
+                purchase.stripe_payment_intent_id = payment_intent_id
+                purchase.save()
+            
+            logger.info(f"Payment succeeded - {'created' if created else 'updated'} purchase {purchase.id}")
             webhook_event.processed = True
             webhook_event.save()
             
-        except Purchase.DoesNotExist:
-            logger.error(f"Purchase not found for payment intent {payment_intent_id}")
+        except User.DoesNotExist:
+            logger.error(f"User not found for payment intent {payment_intent_id}")
+        except Beat.DoesNotExist:
+            logger.error(f"Beat not found for payment intent {payment_intent_id}")
         except Exception as e:
             logger.error(f"Error processing payment success: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
     
     elif event['type'] == 'payment_intent.payment_failed':
         payment_intent = event['data']['object']

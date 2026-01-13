@@ -18,6 +18,16 @@
   }
 }
 
+@keyframes slideUpFadeInWithMargin {
+  from {
+    transform: translate(0, 0);
+    margin-top: 0;
+  }
+  to {
+    transform: translate(0px, -24px);
+  }
+}
+
 .beat-card {
   border-radius: 12px;
   padding: 20px;
@@ -25,6 +35,7 @@
   flex-direction: column;
   align-items: left;
   transition: all ease-in-out 0.3s;
+  position: relative;
 
   // Center the entire card content on very small screens
   @media (max-width: 440px) {
@@ -37,6 +48,11 @@
         // Only animate on larger screens where button is hidden by default
         @media (min-width: 441px) {
           animation: slideUpFadeIn 0.4s ease-out forwards;
+        }
+      }
+      .cover-art {
+        .cover-art-name {
+          animation: slideUpFadeInWithMargin 0.4s ease-out forwards;
         }
       }
     }
@@ -70,9 +86,14 @@
       border-radius: 8px;
       object-fit: cover;
 
-      // Limit cover art width on very small screens for better centering
-      @media (max-width: 440px) {
-        max-width: 200px;
+      .cover-art-name {
+        margin-top: 0;
+        opacity: 1;
+        transform: translate(0, 0);
+        transition:
+          opacity 0.4s ease-out,
+          transform 0.4s ease-out,
+          margin-top 0.4s ease-out;
       }
     }
     .play-btn {
@@ -129,16 +150,9 @@
         display: flex;
         padding-top: 5px;
         opacity: 0;
-
-        // Position download icon in bottom right corner on very small screens
-        @media (max-width: 440px) {
-          position: absolute;
-          bottom: 12px;
-          right: 12px;
-          opacity: 1;
-          padding-top: 0;
-          z-index: 10;
-        }
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
 
         .download-icon {
           opacity: 0.5;

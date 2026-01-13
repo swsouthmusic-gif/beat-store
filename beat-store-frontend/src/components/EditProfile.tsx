@@ -26,6 +26,9 @@ interface EditProfileProps {
 interface UserProfile {
   username: string;
   email: string;
+  first_name: string;
+  last_name: string;
+  middle_initial: string;
   bio: string;
   location: string;
   avatar: string | File | null;
@@ -40,6 +43,9 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
   const [profile, setProfile] = useState<UserProfile>({
     username: '',
     email: '',
+    first_name: '',
+    last_name: '',
+    middle_initial: '',
     bio: '',
     location: '',
     avatar: null,
@@ -60,6 +66,9 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
         setProfile({
           username: userProfile.username || '',
           email: userProfile.email || '',
+          first_name: userProfile.first_name || '',
+          last_name: userProfile.last_name || '',
+          middle_initial: userProfile.middle_initial || '',
           bio: userProfile.bio || '',
           location: userProfile.location || '',
           avatar: userProfile.avatar || null,
@@ -79,9 +88,16 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
 
   const handleInputChange =
     (field: keyof UserProfile) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      let value = e.target.value;
+
+      // Auto-uppercase and limit to 1 character for middle_initial
+      if (field === 'middle_initial') {
+        value = value.toUpperCase().slice(0, 1);
+      }
+
       setProfile(prev => ({
         ...prev,
-        [field]: e.target.value,
+        [field]: value,
       }));
       // Clear error when user starts typing
       if (errors[field]) {
@@ -160,6 +176,9 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
       const profileData = {
         username: profile.username,
         email: profile.email,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        middle_initial: profile.middle_initial,
         bio: profile.bio,
         location: profile.location,
         avatar: profile.avatar,
@@ -383,6 +402,125 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
                   },
                 }}
               />
+
+              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                <TextField
+                  id="first_name"
+                  name="first_name"
+                  label="First Name"
+                  value={profile.first_name}
+                  onChange={handleInputChange('first_name')}
+                  error={!!errors.first_name}
+                  helperText={errors.first_name}
+                  fullWidth
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '12px',
+                      bgcolor: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      '&:hover': {
+                        borderColor: 'rgba(255, 255, 255, 0.16)',
+                        bgcolor: 'rgba(255, 255, 255, 0.06)',
+                      },
+                      '&.Mui-focused': {
+                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                        bgcolor: 'rgba(255, 255, 255, 0.08)',
+                        boxShadow: '0 0 0 3px rgba(255, 255, 255, 0.1)',
+                      },
+                      input: {
+                        color: '#fff',
+                        py: 1.5,
+                        px: 2,
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.6)',
+                    },
+                    '& .MuiFormHelperText-root': {
+                      color: 'rgba(255, 255, 255, 0.5)',
+                    },
+                  }}
+                />
+
+                <TextField
+                  id="middle_initial"
+                  name="middle_initial"
+                  label="M."
+                  value={profile.middle_initial}
+                  onChange={handleInputChange('middle_initial')}
+                  error={!!errors.middle_initial}
+                  helperText={errors.middle_initial}
+                  InputProps={{ inputProps: { maxLength: 1 } }}
+                  sx={{
+                    width: '112px',
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '12px',
+                      bgcolor: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      '&:hover': {
+                        borderColor: 'rgba(255, 255, 255, 0.16)',
+                        bgcolor: 'rgba(255, 255, 255, 0.06)',
+                      },
+                      '&.Mui-focused': {
+                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                        bgcolor: 'rgba(255, 255, 255, 0.08)',
+                        boxShadow: '0 0 0 3px rgba(255, 255, 255, 0.1)',
+                      },
+                      input: {
+                        color: '#fff',
+                        py: 1.5,
+                        px: 2,
+                        textAlign: 'center',
+                        textTransform: 'uppercase',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.6)',
+                    },
+                    '& .MuiFormHelperText-root': {
+                      color: 'rgba(255, 255, 255, 0.5)',
+                    },
+                  }}
+                />
+
+                <TextField
+                  id="last_name"
+                  name="last_name"
+                  label="Last Name"
+                  value={profile.last_name}
+                  onChange={handleInputChange('last_name')}
+                  error={!!errors.last_name}
+                  helperText={errors.last_name}
+                  fullWidth
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '12px',
+                      bgcolor: 'rgba(255, 255, 255, 0.04)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      '&:hover': {
+                        borderColor: 'rgba(255, 255, 255, 0.16)',
+                        bgcolor: 'rgba(255, 255, 255, 0.06)',
+                      },
+                      '&.Mui-focused': {
+                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                        bgcolor: 'rgba(255, 255, 255, 0.08)',
+                        boxShadow: '0 0 0 3px rgba(255, 255, 255, 0.1)',
+                      },
+                      input: {
+                        color: '#fff',
+                        py: 1.5,
+                        px: 2,
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.6)',
+                    },
+                    '& .MuiFormHelperText-root': {
+                      color: 'rgba(255, 255, 255, 0.5)',
+                    },
+                  }}
+                />
+              </Box>
 
               <TextField
                 id="location"

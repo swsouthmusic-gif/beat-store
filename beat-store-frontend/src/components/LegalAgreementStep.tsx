@@ -1,7 +1,19 @@
-import { Box, Typography, Checkbox, FormControlLabel, Chip, Divider } from '@mui/material';
+import { useRef, useMemo, useState } from 'react';
+import {
+  Box,
+  Typography,
+  Checkbox,
+  FormControlLabel,
+  Chip,
+  Divider,
+  IconButton,
+  Modal,
+} from '@mui/material';
+import { Edit, UnfoldMore, Close } from '@mui/icons-material';
 import { genreColors } from '@/constants/genreColors';
 import { levelLabelMap, levelColorMap, iconTypeMap } from '@/constants/licenseMaps';
 import type { BeatType } from '@/store/beatApi';
+import { useAuthStore } from '@/store/authStore';
 
 type LicenseInfo = {
   type: 'mp3' | 'wav' | 'stems';
@@ -19,6 +31,7 @@ interface LegalAgreementStepProps {
   selectedDownloadType?: 'mp3' | 'wav' | 'stems' | null;
   selectedLicense?: LicenseInfo | null;
   playButton?: React.ReactNode;
+  onEditProfile?: () => void;
 }
 
 const LegalAgreementStep = ({
@@ -28,19 +41,69 @@ const LegalAgreementStep = ({
   selectedDownloadType,
   selectedLicense,
   playButton,
+  onEditProfile,
 }: LegalAgreementStepProps) => {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const { userProfile } = useAuthStore();
+  const [showAgreementModal, setShowAgreementModal] = useState(false);
+
+  // Generate consistent random background color for fallback
+  const fallbackColor = useMemo(() => {
+    if (!beat?.name) return 'hsl(0, 0%, 50%)';
+    let hash = 0;
+    for (let i = 0; i < beat.name.length; i++) {
+      hash = beat.name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    const saturation = 60 + (Math.abs(hash) % 20);
+    const lightness = 45 + (Math.abs(hash) % 15);
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  }, [beat?.name]);
+
+  // Format full name with middle initial
+  const fullName = useMemo(() => {
+    if (!userProfile) return '';
+    const parts = [
+      userProfile.first_name,
+      userProfile.middle_initial ? `${userProfile.middle_initial}.` : null,
+      userProfile.last_name,
+    ].filter(Boolean);
+    return parts.join(' ');
+  }, [userProfile]);
+
   return (
     <Box className="legal-agreement" sx={{ paddingBottom: '8px', paddingTop: '8px' }}>
       {beat && (
         <Box className="beat-selected-container">
           <Box className="beat-selected">
             <Box className="beat-cover-container">
-              <img
-                src={beat.cover_art}
-                alt={beat.name}
-                className="beat-cover-art"
-                crossOrigin="anonymous"
-              />
+              {beat.cover_art ? (
+                <img
+                  ref={imgRef}
+                  src={beat.cover_art ?? undefined}
+                  alt={beat.name}
+                  className="beat-cover-art"
+                  crossOrigin="anonymous"
+                />
+              ) : (
+                <Box
+                  className="beat-cover-art"
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: fallbackColor,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    textAlign: 'center',
+                    padding: '16px',
+                    fontSize: '18px',
+                    fontWeight: 600,
+                    lineHeight: 1.2,
+                  }}
+                ></Box>
+              )}
 
               <Box
                 sx={{
@@ -145,9 +208,18 @@ const LegalAgreementStep = ({
         </Box>
       )}
       <Divider sx={{ my: 1 }} />
-      <Typography variant="h6" sx={{ paddingBottom: '8px' }}>
-        License Agreement
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="h6" sx={{ paddingBottom: '8px' }}>
+          License Agreement
+        </Typography>
+        <IconButton
+          size="small"
+          onClick={() => setShowAgreementModal(true)}
+          sx={{ color: 'text.primary', opacity: 0.7, '&:hover': { opacity: 1 } }}
+        >
+          <UnfoldMore fontSize="small" sx={{ transform: 'rotate(45deg)' }} />
+        </IconButton>
+      </Box>
       <Box
         className="legal-agreement-box"
         sx={theme => ({
@@ -226,6 +298,247 @@ const LegalAgreementStep = ({
         control={<Checkbox checked={agreed} onChange={e => setAgreed(e.target.checked)} />}
         label="I have read and agree to the terms above"
       />
+
+      {/* Signature Section */}
+      {fullName && (
+        <Box
+          sx={{
+            mt: 3,
+            mb: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            gap: 1,
+          }}
+        >
+          <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
+            Sign:
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              fontStyle: 'italic',
+              fontFamily: 'cursive',
+              borderBottom: '1px solid',
+              borderColor: 'text.primary',
+              display: 'inline-block',
+              minWidth: '200px',
+              pb: 0.5,
+              paddingLeft: 1,
+              paddingRight: 1,
+              color: 'text.primary',
+            }}
+          >
+            {fullName}
+          </Typography>
+          {onEditProfile && (
+            <IconButton
+              size="small"
+              onClick={onEditProfile}
+              sx={{
+                color: 'text.primary',
+                opacity: 0.7,
+                '&:hover': {
+                  opacity: 1,
+                },
+              }}
+            >
+              <Edit fontSize="small" />
+            </IconButton>
+          )}
+        </Box>
+      )}
+
+      {/* License Agreement PDF Modal */}
+      <Modal
+        open={showAgreementModal}
+        onClose={() => setShowAgreementModal(false)}
+        aria-labelledby="license-agreement-pdf-modal"
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1400, // Higher than BeatDrawer modal
+        }}
+        slotProps={{
+          backdrop: {
+            style: {
+              background: 'rgba(0, 0, 0, 0.7)',
+              backdropFilter: 'blur(4px)',
+            },
+          },
+        }}
+      >
+        <Box
+          sx={{
+            position: 'relative',
+            width: '90%',
+            maxWidth: '620px',
+            maxHeight: '92vh',
+            borderRadius: 2,
+            boxShadow: 24,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: 'transparent',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              paddingBottom: 1,
+            }}
+          >
+            <IconButton onClick={() => setShowAgreementModal(false)}>
+              <Close />
+            </IconButton>
+          </Box>
+          {/* PDF-like Content */}
+          <Box
+            sx={{
+              p: 4,
+              overflowY: 'auto',
+              bgcolor: 'background.paper',
+              height: '100%',
+              color: 'text.primary',
+              fontFamily: 'Georgia, serif',
+              fontSize: '12px',
+              lineHeight: 1.8,
+            }}
+          >
+            {/* Header */}
+            <Box sx={{ textAlign: 'center', mb: 4, borderBottom: '2px solid #000', pb: 2 }}>
+              <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
+                Non-Exclusive License Agreement
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Beat Purchase Agreement
+              </Typography>
+            </Box>
+
+            {/* Agreement Content */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="body2" paragraph sx={{ mb: 2 }}>
+                This License Agreement ("Agreement") governs your use of the selected beat ("Beat")
+                made available through this platform. By continuing, you ("Licensee") acknowledge
+                and agree to the following terms:
+              </Typography>
+
+              <ol style={{ paddingLeft: 24, marginBottom: 16 }}>
+                <li style={{ marginBottom: 12 }}>
+                  <strong>License Type:</strong> You are granted a limited, non-exclusive,
+                  non-transferable license to use the Beat strictly for personal, non-commercial
+                  purposes.
+                </li>
+                <li style={{ marginBottom: 12 }}>
+                  <strong>Permitted Uses:</strong> You may use the Beat for:
+                  <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                    <li>Listening for inspiration or practice</li>
+                    <li>Non-monetized social content (Instagram, TikTok, etc.)</li>
+                    <li>Demo recordings that are not distributed for profit</li>
+                  </ul>
+                </li>
+                <li style={{ marginBottom: 12 }}>
+                  <strong>Prohibited Uses:</strong> You may <u>not</u>:
+                  <ul style={{ paddingLeft: 20, marginTop: 8 }}>
+                    <li>
+                      Use the Beat in monetized content (e.g. YouTube, Spotify, Apple Music, etc.)
+                    </li>
+                    <li>
+                      Use the Beat in commercial products (advertising, film, games, podcasts, etc.)
+                    </li>
+                    <li>Sell, sublicense, remix, or distribute the Beat as-is or altered</li>
+                    <li>Claim ownership of the Beat</li>
+                  </ul>
+                </li>
+                <li style={{ marginBottom: 12 }}>
+                  <strong>Ownership:</strong> The Beat remains the sole property of the creator.
+                  This license does not transfer any copyright, publishing, or master ownership
+                  rights.
+                </li>
+                <li style={{ marginBottom: 12 }}>
+                  <strong>Term:</strong> This license is perpetual, provided the terms are not
+                  violated.
+                </li>
+                <li style={{ marginBottom: 12 }}>
+                  <strong>Termination:</strong> This license is automatically terminated if you
+                  breach any of the above terms. Upon termination, all usage must cease and any
+                  distributed content must be removed.
+                </li>
+                <li style={{ marginBottom: 12 }}>
+                  <strong>Liability:</strong> Unauthorized or commercial use of the Beat may result
+                  in legal action, takedown notices, and claims for damages.
+                </li>
+              </ol>
+
+              <Typography variant="body2" paragraph sx={{ mt: 3 }}>
+                By continuing, you confirm that you have read, understood, and agreed to the terms
+                of this license.
+              </Typography>
+            </Box>
+
+            {/* Signature Section */}
+            {fullName && (
+              <Box
+                sx={{
+                  mt: 6,
+                  pt: 4,
+                  borderTop: theme => `1px solid ${theme.palette.divider}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 3,
+                }}
+              >
+                <Box
+                  sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}
+                >
+                  <Box sx={{ flex: 1 }}>
+                    <Typography
+                      variant="body2"
+                      sx={theme => ({
+                        fontStyle: 'italic',
+                        fontFamily: 'cursive',
+                        borderBottom: `1px solid ${theme.palette.text.primary}`,
+                        display: 'inline-block',
+                        minWidth: '250px',
+                        pb: 0.5,
+                        mb: 1,
+                      })}
+                    >
+                      {fullName}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', color: '#666', mt: 0.5 }}>
+                      Signature
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        borderBottom: theme => `1px solid ${theme.palette.text.primary}`,
+                        display: 'inline-block',
+                        minWidth: '150px',
+                        pb: 0.5,
+                        mb: 1,
+                      }}
+                    >
+                      {new Date().toLocaleDateString()}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ display: 'block', color: 'text.secondary', mt: 0.5 }}
+                    >
+                      Date
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            )}
+          </Box>
+        </Box>
+      </Modal>
     </Box>
   );
 };

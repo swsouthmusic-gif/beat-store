@@ -53,7 +53,14 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS Configuration
+# For development, allow all origins. For production, set CORS_ALLOW_ALL_ORIGINS=False in .env
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
+CORS_ALLOWED_ORIGINS = config(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:5173,http://localhost:3000,https://swsmusicgroup.com,https://www.swsmusicgroup.com',
+    cast=lambda v: [s.strip() for s in v.split(',') if s.strip()]
+)
 
 ROOT_URLCONF = 'beats_store.urls'
 
@@ -172,6 +179,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ],
+    'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',
 }
 
 SPECTACULAR_SETTINGS = {

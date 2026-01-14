@@ -41,6 +41,7 @@ venv.bak/
 .env.local
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
 
 # Node.js
@@ -73,6 +74,8 @@ Thumbs.db
 # Logs
 logs
 *.log
+Deployment.md
+LOCAL_DEVELOPMENT_SETUP.md
 
 # Runtime data
 pids

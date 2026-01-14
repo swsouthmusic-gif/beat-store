@@ -56,6 +56,19 @@ class BeatViewSet(viewsets.ModelViewSet):
         if self.action in ["download", "purchase", "create_payment_intent", "confirm_payment", "check_purchase"]:  # custom actions
             return [IsAuthenticated()]
         return super().get_permissions()
+    
+    def list(self, request, *args, **kwargs):
+        """Override list to handle filter validation errors gracefully"""
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            # Log the error for debugging
+            logger.error(f"Error in BeatViewSet.list: {str(e)}", exc_info=True)
+            # Return a proper JSON error response
+            return Response(
+                {'error': 'Invalid filter parameters', 'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     @action(detail=True, methods=['post'])
     def create_payment_intent(self, request, pk=None):

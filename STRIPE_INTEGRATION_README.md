@@ -178,12 +178,14 @@ VITE_STRIPE_PUBLISHABLE_KEY_LIVE=pk_live_your_live_publishable_key_here
 ```
 
 **Important Notes:**
+
 1. **Vite embeds environment variables at build time** - You MUST set these variables in Vercel BEFORE deploying/rebuilding
 2. **Variable names must start with `VITE_`** - Only variables prefixed with `VITE_` are exposed to the client
 3. **After adding env vars, trigger a new deployment** - Go to Vercel dashboard → Your Project → Settings → Environment Variables, add the variables, then redeploy
 4. The frontend will use the live key when `VITE_ENVIRONMENT=production` or when building for production (`npm run build`)
 
 **Vercel Setup Steps:**
+
 1. Go to your Vercel project dashboard
 2. Navigate to Settings → Environment Variables
 3. Add `VITE_STRIPE_PUBLISHABLE_KEY_LIVE` with your live publishable key (starts with `pk_live_`)

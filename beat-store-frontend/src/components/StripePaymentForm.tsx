@@ -92,12 +92,6 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
         !isCreatingIntent &&
         !hasAttemptedCreation.current
       ) {
-        console.log('🔄 StripePaymentForm: Attempting to create payment intent...', {
-          beatId: beat.id,
-          downloadType: selectedDownloadType,
-          pricePaid: selectedLicense.price,
-        });
-
         try {
           hasAttemptedCreation.current = true;
           setPaymentStatus('processing');

@@ -115,18 +115,6 @@ const BeatRow = ({
   // Use snippet_mp3 if available, otherwise use frontend-generated snippet, fallback to mp3_file for playback
   const audioUrl = snippet_mp3 || frontendSnippetUrl || mp3_file || null;
 
-  // Debug: Log snippet_mp3 status
-  useEffect(() => {
-    if (snippet_mp3) {
-      console.log(`✅ snippet_mp3 exists for "${name}":`, snippet_mp3);
-    } else if (mp3_file) {
-      console.warn(
-        `⚠️ snippet_mp3 is missing for "${name}". Using mp3_file as fallback:`,
-        mp3_file,
-      );
-    }
-  }, [snippet_mp3, mp3_file, name]);
-
   // Generate consistent random background color for fallback
   const fallbackColor = useMemo(() => generateColorFromString(name), [name]);
 

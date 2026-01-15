@@ -74,33 +74,6 @@ const CheckoutStep = ({
     },
   );
 
-  // Debug logging for purchase check
-  useEffect(() => {
-    if (beat && selectedDownloadType && isLoggedIn) {
-      console.log('🔍 CheckoutStep: Purchase check params:', {
-        beatId: beat.id,
-        downloadType: selectedDownloadType,
-        isLoggedIn,
-        isCheckingPurchase,
-        purchaseCheck,
-        purchaseCheckError,
-      });
-    } else {
-      console.log('⏸️ CheckoutStep: Purchase check skipped:', {
-        hasBeat: !!beat,
-        hasDownloadType: !!selectedDownloadType,
-        isLoggedIn,
-      });
-    }
-  }, [
-    beat?.id,
-    selectedDownloadType,
-    isLoggedIn,
-    isCheckingPurchase,
-    purchaseCheck,
-    purchaseCheckError,
-  ]);
-
   // Show modal if purchase exists
   useEffect(() => {
     if (purchaseCheck?.has_purchase === true && !purchaseSuccess) {
@@ -465,11 +438,7 @@ const CheckoutStep = ({
                 Complete Your Purchase
               </Typography>
 
-              <StripeProvider
-                clientSecret={clientSecret || undefined}
-                amount={selectedLicense.price ? parseFloat(selectedLicense.price.toString()) : 0}
-                currency="usd"
-              >
+              <StripeProvider clientSecret={clientSecret || undefined}>
                 <StripePaymentForm
                   key={`${beat.id}-${selectedDownloadType}-${selectedLicense.price}`}
                   beat={beat}

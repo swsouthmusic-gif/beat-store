@@ -61,32 +61,24 @@ const getStripePromise = () => {
 interface StripeProviderProps {
   children: React.ReactNode;
   clientSecret?: string;
-  amount?: number; // Amount in cents
-  currency?: string;
 }
 
-export const StripeProvider = ({
-  children,
-  clientSecret,
-  amount,
-  currency = 'usd',
-}: StripeProviderProps) => {
+export const StripeProvider = ({ children, clientSecret }: StripeProviderProps) => {
+  // Only render Elements when clientSecret exists
+  // This follows best practice: wait for PaymentIntent creation before mounting Elements
+  if (!clientSecret) {
+    return null; // Show a loader / skeleton instead (handled by parent component)
+  }
+
   const appearance: Appearance = {
     theme: 'night',
     labels: 'floating',
   };
 
-  const options = clientSecret
-    ? {
-        clientSecret,
-        appearance: appearance,
-      }
-    : {
-        mode: 'payment' as const,
-        amount: amount ? Math.round(amount * 100) : 0,
-        currency,
-        appearance: appearance,
-      };
+  const options = {
+    clientSecret,
+    appearance: appearance,
+  };
 
   return (
     <Elements stripe={getStripePromise()} options={options}>

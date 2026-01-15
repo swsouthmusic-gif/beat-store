@@ -485,6 +485,7 @@ def stripe_webhook(request):
 
 class UserProfileView(APIView):
     """Handle user profile operations"""
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     
     def get(self, request):

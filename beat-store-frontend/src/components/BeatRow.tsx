@@ -91,7 +91,6 @@ const BeatRow = ({
           if (url) {
             snippetUrlRef.current = url;
             setFrontendSnippetUrl(url);
-            console.log(`✅ Created 30-second snippet from mp3_file for "${name}"`);
           }
         })
         .catch(error => {

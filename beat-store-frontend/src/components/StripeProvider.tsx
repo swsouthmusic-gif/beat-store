@@ -7,17 +7,25 @@ import { Elements } from '@stripe/react-stripe-js';
 const getStripeKey = () => {
   const isProduction = import.meta.env.PROD || import.meta.env.VITE_ENVIRONMENT === 'production';
 
-  if (isProduction) {
-    // Production: Use live key (fallback to test key if live key not provided)
-    return (
-      import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_LIVE ||
-      import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ||
-      'pk_test_your_publishable_key_here'
+  const key = isProduction
+    ? import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_LIVE ||
+      import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+    : import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+
+  if (!key) {
+    throw new Error(
+      `Missing Stripe publishable key for ${isProduction ? 'production' : 'development'}`,
     );
-  } else {
-    // Development: Use test key
-    return import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_publishable_key_here';
   }
+
+  // Optional: extra safety
+  if (isProduction && key.startsWith('pk_test_')) {
+    throw new Error(
+      'Production is using a test Stripe publishable key (pk_test_). Fix Vercel env vars.',
+    );
+  }
+
+  return key;
 };
 
 const stripePromise = loadStripe(getStripeKey());

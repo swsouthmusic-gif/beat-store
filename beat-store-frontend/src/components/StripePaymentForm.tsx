@@ -100,7 +100,6 @@ const StripePaymentForm: React.FC<StripePaymentFormProps> = ({
           const result = await createPaymentIntent({
             beatId: beat.id,
             downloadType: selectedDownloadType,
-            pricePaid: parseFloat(selectedLicense.price?.toString() || '0'),
           }).unwrap();
 
           setPaymentIntentId(result.payment_intent_id);

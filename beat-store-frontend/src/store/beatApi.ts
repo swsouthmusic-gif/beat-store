@@ -56,7 +56,6 @@ export interface BeatType {
 export interface CreatePaymentIntentRequest {
   beatId: number;
   downloadType: 'mp3' | 'wav' | 'stems';
-  pricePaid: number;
 }
 
 export interface CreatePaymentIntentResponse {
@@ -112,12 +111,11 @@ export const beatApi = createApi({
       transformResponse: (response: CheckPurchaseResponse) => response,
     }),
     createPaymentIntent: builder.mutation<CreatePaymentIntentResponse, CreatePaymentIntentRequest>({
-      query: ({ beatId, downloadType, pricePaid }) => ({
+      query: ({ beatId, downloadType }) => ({
         url: `beats/${beatId}/create_payment_intent/`,
         method: 'POST',
         body: {
           download_type: downloadType,
-          price_paid: pricePaid,
         },
       }),
     }),

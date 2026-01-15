@@ -1,5 +1,6 @@
 import { loadStripe, type Appearance } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
+import { useMemo } from 'react';
 
 // Initialize Stripe
 // Use live key in production (when VITE_ENVIRONMENT=production or in production build),
@@ -37,28 +38,18 @@ interface StripeProviderProps {
   currency?: string;
 }
 
-export const StripeProvider = ({
-  children,
-  clientSecret,
-  amount,
-  currency = 'usd',
-}: StripeProviderProps) => {
+export const StripeProvider = ({ children, clientSecret }: StripeProviderProps) => {
   const appearance: Appearance = {
     theme: 'night',
     labels: 'floating',
   };
 
-  const options = clientSecret
-    ? {
-        clientSecret,
-        appearance: appearance,
-      }
-    : {
-        mode: 'payment' as const,
-        amount: amount ? Math.round(amount * 100) : 0,
-        currency,
-        appearance: appearance,
-      };
+  const options = useMemo(() => {
+    if (!clientSecret) return null;
+    return { clientSecret, appearance };
+  }, [clientSecret, appearance]);
+
+  if (!options) return null; // show loader
 
   return (
     <Elements stripe={stripePromise} options={options}>

@@ -75,19 +75,25 @@ class BeatViewSet(viewsets.ModelViewSet):
         """Create a Stripe Payment Intent for the beat purchase"""
         beat = self.get_object()
         download_type = request.data.get('download_type')
-        price_paid = request.data.get('price_paid')
 
-        if not download_type or not price_paid:
+        # Validate download type
+        if download_type not in ('mp3', 'wav', 'stems'):
             return Response(
-                {'error': 'download_type and price_paid are required'}, 
+                {'error': 'Invalid download_type'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Validate download type
-        valid_types = ['mp3', 'wav', 'stems']
-        if download_type not in valid_types:
+        # Compute price on server based on download type
+        if download_type == 'mp3':
+            price = beat.mp3_price
+        elif download_type == 'wav':
+            price = beat.wav_price
+        else:  # stems
+            price = beat.stems_price
+
+        if price is None:
             return Response(
-                {'error': f'download_type must be one of {valid_types}'}, 
+                {'error': 'No price set for this download type'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -114,9 +120,6 @@ class BeatViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Note: We no longer create pending purchases, so we don't need to check for them
-        # Each payment intent creation is independent
-        
         # Check if Stripe is configured
         if not hasattr(settings, 'STRIPE_SECRET_KEY') or not settings.STRIPE_SECRET_KEY:
             logger.error("STRIPE_SECRET_KEY is not configured in settings")
@@ -129,29 +132,37 @@ class BeatViewSet(viewsets.ModelViewSet):
         if not stripe.api_key:
             stripe.api_key = settings.STRIPE_SECRET_KEY
         
+        # Stripe expects integer cents
+        amount_cents = int(round(float(price) * 100))
+        if amount_cents <= 0:
+            return Response(
+                {'error': 'Invalid price amount'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         try:
             # Create Stripe Payment Intent
             intent = stripe.PaymentIntent.create(
-                amount=int(float(price_paid) * 100),  # Convert to cents
+                amount=amount_cents,
                 currency='usd',
-                metadata={
-                    'user_id': request.user.id,
-                    'beat_id': beat.id,
-                    'download_type': download_type,
-                    'beat_name': beat.name,
-                },
                 automatic_payment_methods={
                     'enabled': True,
                 },
+                metadata={
+                    'beat_id': str(beat.id),
+                    'download_type': download_type,
+                    'user_id': str(request.user.id) if request.user.is_authenticated else '',
+                    'beat_name': beat.name,
+                },
             )
             
-            # Don't create Purchase record yet - only create after payment succeeds
-            # The payment intent metadata contains all the info we need
-            
-            return Response({
-                'client_secret': intent.client_secret,
-                'payment_intent_id': intent.id,
-            })
+            return Response(
+                {
+                    'client_secret': intent.client_secret,
+                    'payment_intent_id': intent.id,
+                },
+                status=status.HTTP_200_OK,
+            )
             
         except stripe.error.StripeError as e:
             logger.error(f"Stripe error: {str(e)}")

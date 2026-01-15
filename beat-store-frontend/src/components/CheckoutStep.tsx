@@ -60,11 +60,7 @@ const CheckoutStep = ({
   } | null>(null);
 
   // Check if beat was already purchased
-  const {
-    data: purchaseCheck,
-    isLoading: isCheckingPurchase,
-    error: purchaseCheckError,
-  } = useCheckPurchaseQuery(
+  const { data: purchaseCheck, isLoading: isCheckingPurchase } = useCheckPurchaseQuery(
     {
       beatId: beat?.id ?? 0,
       downloadType: selectedDownloadType ?? 'mp3',

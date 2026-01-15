@@ -65,17 +65,16 @@ export const StripeProvider = ({
     labels: 'floating',
   };
 
-  const options = clientSecret
-    ? {
-        clientSecret,
-        appearance: appearance,
-      }
-    : {
-        mode: 'payment' as const,
-        amount: amount ? Math.round(amount * 100) : 0,
-        currency,
-        appearance: appearance,
-      };
+  // Only use clientSecret mode (PaymentIntent) - don't fall back to payment mode
+  // If clientSecret is not provided, don't render Elements
+  if (!clientSecret) {
+    return null;
+  }
+
+  const options = {
+    clientSecret,
+    appearance: appearance,
+  };
 
   return (
     <Elements stripe={stripePromise} options={options}>

@@ -19,9 +19,6 @@ import {
   PauseRounded,
   ArrowForward,
   ArrowBackRounded,
-  Facebook,
-  Apple,
-  Google,
 } from '@mui/icons-material';
 import { alpha } from '@mui/material/styles';
 

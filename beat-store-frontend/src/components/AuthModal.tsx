@@ -7,13 +7,9 @@ import {
   TextField,
   Button,
   IconButton,
-  Divider,
   CircularProgress,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import GoogleIcon from '@mui/icons-material/Google';
-import AppleIcon from '@mui/icons-material/Apple';
-import FacebookIcon from '@mui/icons-material/Facebook';
 
 type AuthMode = 'login' | 'signup' | 'forgot';
 
@@ -40,7 +36,6 @@ const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   onLogin,
   onSignUp,
-  onSocialLogin,
   initialMode = 'login',
 }) => {
   const [mode, setMode] = React.useState<AuthMode>(initialMode);
@@ -110,18 +105,6 @@ const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'apple' | 'facebook') => {
-    try {
-      setLoading(true);
-      await (onSocialLogin?.(provider) ?? Promise.resolve());
-      onClose();
-    } catch (err: any) {
-      setError(err?.message || `${provider} login failed. Please try again.`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // ======== Modern Minimal Design ========
   const modalSx = {
     position: 'absolute' as const,
@@ -152,26 +135,6 @@ const AuthModal: React.FC<AuthModalProps> = ({
     mb: 3,
     textAlign: 'center' as const,
     fontSize: '0.875rem',
-  };
-
-  const socialButtonSx = {
-    width: '100%',
-    py: 1.5,
-    borderRadius: '12px',
-    textTransform: 'none' as const,
-    fontWeight: 500,
-    fontSize: '0.875rem',
-    border: '1px solid rgba(255, 255, 255, 0.12)',
-    bgcolor: 'rgba(255, 255, 255, 0.04)',
-    color: '#fff',
-    '&:hover': {
-      bgcolor: 'rgba(255, 255, 255, 0.08)',
-      borderColor: 'rgba(255, 255, 255, 0.2)',
-    },
-    '&:disabled': {
-      bgcolor: 'rgba(255, 255, 255, 0.02)',
-      borderColor: 'rgba(255, 255, 255, 0.08)',
-    },
   };
 
   const fieldSx = {

@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { loadStripe, type Appearance } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 
@@ -34,7 +33,7 @@ The app must be rebuilt after adding environment variables.`
   if (isProduction && key.startsWith('pk_test_')) {
     throw new Error(
       `Production is using a test Stripe publishable key (pk_test_). 
-
+      
 To fix:
 1. Go to Vercel Dashboard → Settings → Environment Variables
 2. Set VITE_STRIPE_PUBLISHABLE_KEY_LIVE to your live key (pk_live_...)
@@ -45,54 +44,38 @@ To fix:
   return key;
 };
 
-// Lazy load Stripe to avoid errors at module load time
-let stripePromise: Promise<any> | null = null;
-const getStripePromise = () => {
-  if (!stripePromise) {
-    try {
-      stripePromise = loadStripe(getStripeKey());
-    } catch (error) {
-      console.error('Failed to initialize Stripe:', error);
-      throw error;
-    }
-  }
-  return stripePromise;
-};
+// Initialize Stripe
+const stripePromise = loadStripe(getStripeKey());
 
 interface StripeProviderProps {
   children: React.ReactNode;
   clientSecret?: string;
+  amount?: number; // Amount in cents
+  currency?: string;
 }
 
-export const StripeProvider = ({ children, clientSecret }: StripeProviderProps) => {
-  // Only render Elements when clientSecret exists
-  // This follows best practice: wait for PaymentIntent creation before mounting Elements
-  if (!clientSecret) {
-    return null; // Show a loader / skeleton instead (handled by parent component)
-  }
-
-  // Memoize the Stripe promise to avoid recreating it on every render
-  const stripePromise = useMemo(() => {
-    try {
-      return getStripePromise();
-    } catch (error) {
-      console.error('Stripe initialization error:', error);
-      throw error;
-    }
-  }, []);
-
+export const StripeProvider = ({
+  children,
+  clientSecret,
+  amount,
+  currency = 'usd',
+}: StripeProviderProps) => {
   const appearance: Appearance = {
     theme: 'night',
     labels: 'floating',
   };
 
-  const options = useMemo(
-    () => ({
-      clientSecret,
-      appearance: appearance,
-    }),
-    [clientSecret],
-  );
+  const options = clientSecret
+    ? {
+        clientSecret,
+        appearance: appearance,
+      }
+    : {
+        mode: 'payment' as const,
+        amount: amount ? Math.round(amount * 100) : 0,
+        currency,
+        appearance: appearance,
+      };
 
   return (
     <Elements stripe={stripePromise} options={options}>

@@ -109,15 +109,7 @@ export const beatApi = createApi({
         url: `beats/${beatId}/check_purchase/?type=${downloadType}`,
         method: 'GET',
       }),
-      transformResponse: (response: CheckPurchaseResponse) => {
-        console.log('checkPurchase response:', response);
-        if (response.has_purchase === true) {
-          console.log('✅ Purchase found! Beat was already purchased.');
-        } else {
-          console.log('❌ No purchase found. Beat is available for purchase.');
-        }
-        return response;
-      },
+      transformResponse: (response: CheckPurchaseResponse) => response,
     }),
     createPaymentIntent: builder.mutation<CreatePaymentIntentResponse, CreatePaymentIntentRequest>({
       query: ({ beatId, downloadType, pricePaid }) => ({

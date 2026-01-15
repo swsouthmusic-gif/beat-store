@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python manage.py makemigrations && python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py create_superuser || true && gunicorn beats_store.wsgi:application --bind 0.0.0.0:$PORT",
+    "startCommand": "python manage.py makemigrations && python manage.py migrate --noinput && python manage.py collectstatic --noinput || true && gunicorn beats_store.wsgi:application --bind 0.0.0.0:$PORT",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }

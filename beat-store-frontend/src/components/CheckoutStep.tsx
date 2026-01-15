@@ -437,7 +437,7 @@ const CheckoutStep = ({
               selectedLicense,
           );
 
-          // Debug logging - only log when state actually changes
+          // Track state changes
           const currentState = {
             shouldRenderForm,
             isCheckingPurchase,
@@ -452,15 +452,6 @@ const CheckoutStep = ({
             prevRenderStateRef.current.hasPurchase !== hasPurchase ||
             prevRenderStateRef.current.purchaseCheckComplete !== purchaseCheckComplete
           ) {
-            if (shouldRenderForm) {
-              console.log('✅ CheckoutStep: Rendering StripePaymentForm - No purchase found');
-            } else if (isCheckingPurchase) {
-              console.log('⏳ CheckoutStep: Waiting for purchase check to complete...');
-            } else if (hasPurchase) {
-              console.log('⛔ CheckoutStep: Purchase exists - NOT rendering payment form');
-            } else if (!purchaseCheckComplete) {
-              console.log('⏳ CheckoutStep: Purchase check result not available yet');
-            }
             prevRenderStateRef.current = currentState;
           }
 

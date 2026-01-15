@@ -151,12 +151,62 @@ A test user has been created for testing:
 
 ## Production Considerations
 
-1. Update Stripe keys to live keys
-2. Set up proper webhook endpoints
-3. Configure CORS for production domains
-4. Set up proper logging and monitoring
-5. Test webhook delivery and processing
-6. Implement proper error handling and retry logic
+### Setting Up Live Stripe Keys for Production
+
+The application is configured to automatically use **live Stripe keys in production** and **test keys in development**.
+
+#### Backend Configuration
+
+In your production environment (Railway, Heroku, etc.), set these environment variables:
+
+```env
+DEBUG=False
+STRIPE_PUBLISHABLE_KEY_LIVE=pk_live_your_live_publishable_key_here
+STRIPE_SECRET_KEY_LIVE=sk_live_your_live_secret_key_here
+STRIPE_WEBHOOK_SECRET_LIVE=whsec_your_live_webhook_secret_here
+```
+
+**Note:** The backend will automatically use these `*_LIVE` keys when `DEBUG=False`. If `*_LIVE` keys are not provided, it will fall back to the regular `STRIPE_*` keys.
+
+#### Frontend Configuration
+
+In your production frontend deployment (Vercel, Netlify, etc.), set:
+
+```env
+VITE_ENVIRONMENT=production
+VITE_STRIPE_PUBLISHABLE_KEY_LIVE=pk_live_your_live_publishable_key_here
+```
+
+**Note:** The frontend will use the live key when `VITE_ENVIRONMENT=production` or when building for production (`npm run build`).
+
+#### Development Environment
+
+For local development, continue using test keys:
+
+**Backend (.env):**
+
+```env
+DEBUG=True
+STRIPE_PUBLISHABLE_KEY=pk_test_your_test_publishable_key_here
+STRIPE_SECRET_KEY=sk_test_your_test_secret_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_test_webhook_secret_here
+```
+
+**Frontend (.env):**
+
+```env
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_test_publishable_key_here
+```
+
+### Other Production Considerations
+
+1. Set up proper webhook endpoints in Stripe Dashboard:
+   - Production webhook URL: `https://yourdomain.com/api/stripe/webhook/`
+   - Events: `payment_intent.succeeded`, `payment_intent.payment_failed`
+2. Configure CORS for production domains
+3. Set up proper logging and monitoring
+4. Test webhook delivery and processing
+5. Implement proper error handling and retry logic
 
 ## API Endpoints
 

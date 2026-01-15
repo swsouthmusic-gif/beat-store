@@ -276,6 +276,24 @@ SIMPLE_JWT = {
 }
 
 # Stripe Configuration
-STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY', default='pk_test_your_publishable_key_here')
-STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY', default='sk_test_your_secret_key_here')
-STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET', default='whsec_your_webhook_secret_here')
+# Use live keys in production (when DEBUG=False), test keys in development
+if not DEBUG:
+    # Production: Use live keys
+    # Priority: STRIPE_*_LIVE env vars > STRIPE_* env vars > defaults
+    STRIPE_PUBLISHABLE_KEY = config(
+        'STRIPE_PUBLISHABLE_KEY_LIVE',
+        default=config('STRIPE_PUBLISHABLE_KEY', default='pk_test_your_publishable_key_here')
+    )
+    STRIPE_SECRET_KEY = config(
+        'STRIPE_SECRET_KEY_LIVE',
+        default=config('STRIPE_SECRET_KEY', default='sk_test_your_secret_key_here')
+    )
+    STRIPE_WEBHOOK_SECRET = config(
+        'STRIPE_WEBHOOK_SECRET_LIVE',
+        default=config('STRIPE_WEBHOOK_SECRET', default='whsec_your_webhook_secret_here')
+    )
+else:
+    # Development: Use test keys
+    STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY', default='pk_test_your_publishable_key_here')
+    STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY', default='sk_test_your_secret_key_here')
+    STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET', default='whsec_your_webhook_secret_here')

@@ -8,10 +8,13 @@ import React, {
   type ReactElement,
 } from 'react';
 import { Box } from '@mui/material';
+import { motion } from 'framer-motion';
+import { keyframes } from '@mui/system';
 import Navbar from '@/components/Navbar';
 
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/store/toastStore';
+import { useGetBeatsQuery } from '@/store/beatApi';
 import AuthModal from '@/components/AuthModal';
 
 import desktopBackground from '@/assets/Desktop - 5.jpg';
@@ -26,6 +29,141 @@ interface LayoutProps {
 
 type AuthMode = 'login' | 'forgot' | 'signup';
 
+// Animated music note loading component
+const pulseAnimation = keyframes`
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+`;
+
+const MusicNoteLoader = () => {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 3,
+      }}
+    >
+      <Box
+        sx={{
+          position: 'relative',
+          width: 120,
+          height: 120,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {/* Animated music note SVG */}
+        <motion.svg
+          width="120"
+          height="120"
+          viewBox="0 0 100 100"
+          xmlns="http://www.w3.org/2000/svg"
+          style={{
+            filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2))',
+          }}
+        >
+          {/* Music note - filled oval note head with stem */}
+          <defs>
+            <linearGradient id="noteGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop
+                offset="0%"
+                stopColor="var(--beat-palette-primary-main, #ffc300)"
+                stopOpacity="0.3"
+              />
+              <stop
+                offset="100%"
+                stopColor="var(--beat-palette-primary-main, #ffc300)"
+                stopOpacity="1"
+              />
+            </linearGradient>
+          </defs>
+
+          {/* Note head (oval) - fills from center */}
+          <motion.ellipse
+            cx="50"
+            cy="70"
+            rx="15"
+            ry="10"
+            fill="var(--beat-palette-primary-main, #ffc300)"
+            initial={{ fillOpacity: 0, scale: 0.3 }}
+            animate={{
+              fillOpacity: [0, 0.4, 0.8, 1, 0.8, 0.4, 0],
+              scale: [0.3, 0.6, 0.9, 1, 1.1, 1, 0.9],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          />
+
+          {/* Stem - fills from top to bottom */}
+          <motion.rect
+            x="62"
+            y="30"
+            width="3"
+            height="45"
+            fill="var(--beat-palette-primary-main, #ffc300)"
+            initial={{ fillOpacity: 0 }}
+            animate={{
+              fillOpacity: [0, 0, 0.3, 0.6, 1, 0.6, 0.3, 0],
+              scaleY: [0, 0, 0.3, 0.6, 1, 0.6, 0.3, 0],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: 'easeInOut',
+              delay: 0.2,
+            }}
+            style={{ transformOrigin: 'top center' }}
+          />
+
+          {/* Flag - draws in */}
+          <motion.path
+            d="M65 30 Q75 25, 80 30 Q75 35, 65 30"
+            fill="var(--beat-palette-primary-main, #ffc300)"
+            stroke="none"
+            initial={{ fillOpacity: 0, pathLength: 0 }}
+            animate={{
+              fillOpacity: [0, 0, 0, 0.4, 0.8, 1, 0.8, 0.4, 0],
+              pathLength: [0, 0, 0, 0.3, 0.6, 1, 0.6, 0.3, 0],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+              ease: 'easeInOut',
+              delay: 0.4,
+            }}
+          />
+        </motion.svg>
+
+        {/* Pulsing ring */}
+        <Box
+          sx={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            borderRadius: '50%',
+            border: '2px solid',
+            borderColor: 'primary.main',
+            opacity: 0.3,
+            animation: `${pulseAnimation} 2s ease-in-out infinite`,
+          }}
+        />
+      </Box>
+    </Box>
+  );
+};
+
 const Layout = ({ children, currentRoute, onNavigate }: LayoutProps) => {
   const { logout, login, requestPasswordReset, signup } = useAuthStore();
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -34,6 +172,48 @@ const Layout = ({ children, currentRoute, onNavigate }: LayoutProps) => {
   const layoutRef = useRef<HTMLDivElement>(null);
 
   const { show } = useToastStore();
+  const { isLoading } = useGetBeatsQuery();
+
+  // Minimum loading time state to ensure animation completes
+  const [minLoadingTimeElapsed, setMinLoadingTimeElapsed] = useState(false);
+  const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null);
+
+  // Track when loading starts
+  useEffect(() => {
+    if (isLoading && loadingStartTime === null) {
+      const startTime = Date.now();
+      setLoadingStartTime(startTime);
+      setMinLoadingTimeElapsed(false);
+    }
+  }, [isLoading, loadingStartTime]);
+
+  // Ensure minimum 1.5 second loading time
+  useEffect(() => {
+    if (loadingStartTime !== null) {
+      const elapsed = Date.now() - loadingStartTime;
+      const remainingTime = Math.max(0, 1500 - elapsed);
+
+      if (remainingTime > 0) {
+        const timer = setTimeout(() => {
+          setMinLoadingTimeElapsed(true);
+        }, remainingTime);
+        return () => clearTimeout(timer);
+      } else {
+        setMinLoadingTimeElapsed(true);
+      }
+    }
+  }, [loadingStartTime]);
+
+  // Reset loading state when both conditions are met
+  useEffect(() => {
+    if (!isLoading && minLoadingTimeElapsed && loadingStartTime !== null) {
+      setLoadingStartTime(null);
+      setMinLoadingTimeElapsed(false);
+    }
+  }, [isLoading, minLoadingTimeElapsed, loadingStartTime]);
+
+  // Combined loading state: show loading if either actual loading or minimum time hasn't elapsed
+  const showLoading = isLoading || (loadingStartTime !== null && !minLoadingTimeElapsed);
 
   useEffect(() => {
     let scrollableElement: HTMLElement | null = null;
@@ -164,53 +344,69 @@ const Layout = ({ children, currentRoute, onNavigate }: LayoutProps) => {
           width: '100%',
           height: '100%',
           background:
-            'radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.46) 50%, rgba(0, 0, 0, 0.4) 100%)',
+            'radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.1) 50%, rgba(0, 0, 0, 0.1) 100%)',
           zIndex: 0.5,
           pointerEvents: 'none',
         }}
       />
       {/* Content Layer */}
-      <Box
-        sx={{
-          position: 'relative',
-          zIndex: 1,
-          display: 'flex',
-          flexDirection: 'row',
-          width: '100%',
-          minHeight: '100vh',
-        }}
-      >
+      {showLoading ? (
         <Box
           sx={{
-            display: { xs: 'none' },
-            '@media (min-width: 769px)': {
-              display: 'block',
-            },
-          }}
-        >
-          <Navbar
-            onLogout={handleLogout}
-            onSignin={handleSignin}
-            currentRoute={currentRoute}
-            onNavigate={onNavigate}
-          />
-        </Box>
-        <Box
-          component="main"
-          sx={{
-            flex: 1,
+            position: 'relative',
+            zIndex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             width: '100%',
-            overflow: 'hidden',
-            ml: { xs: 0 },
-            '@media (min-width: 769px)': {
-              marginLeft: '80px',
-            },
-            transition: 'margin-left 0.3s ease-in-out',
+            minHeight: '100vh',
           }}
         >
-          {injectedChild}
+          <MusicNoteLoader />
         </Box>
-      </Box>
+      ) : (
+        <Box
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            display: 'flex',
+            flexDirection: 'row',
+            width: '100%',
+            minHeight: '100vh',
+          }}
+        >
+          <Box
+            sx={{
+              display: { xs: 'none' },
+              '@media (min-width: 769px)': {
+                display: 'block',
+              },
+            }}
+          >
+            <Navbar
+              onLogout={handleLogout}
+              onSignin={handleSignin}
+              currentRoute={currentRoute}
+              onNavigate={onNavigate}
+            />
+          </Box>
+          <Box
+            component="main"
+            sx={{
+              flex: 1,
+              width: '100%',
+              overflow: 'hidden',
+              ml: { xs: 0 },
+              '@media (min-width: 769px)': {
+                marginLeft: '80px',
+              },
+              transition: 'margin-left 0.3s ease-in-out',
+            }}
+          >
+            {injectedChild}
+          </Box>
+        </Box>
+      )}
 
       <AuthModal
         open={authModalOpen}

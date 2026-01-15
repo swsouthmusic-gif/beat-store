@@ -70,7 +70,7 @@ class Purchase(models.Model):
 class UserProfile(models.Model):
     """Extended user profile with additional fields"""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    photo = models.ImageField(upload_to="profiles/", null=True, blank=True)
+    photo = models.ImageField(upload_to="user-avatar/", null=True, blank=True)
     bio = models.TextField(max_length=500, blank=True)
     middle_initial = models.CharField(max_length=1, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

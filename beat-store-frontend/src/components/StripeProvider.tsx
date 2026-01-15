@@ -2,9 +2,25 @@ import { loadStripe, type Appearance } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 
 // Initialize Stripe
-const stripePromise = loadStripe(
-  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_publishable_key_here',
-);
+// Use live key in production (when VITE_ENVIRONMENT=production or in production build),
+// test key in development
+const getStripeKey = () => {
+  const isProduction = import.meta.env.PROD || import.meta.env.VITE_ENVIRONMENT === 'production';
+
+  if (isProduction) {
+    // Production: Use live key (fallback to test key if live key not provided)
+    return (
+      import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY_LIVE ||
+      import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ||
+      'pk_test_your_publishable_key_here'
+    );
+  } else {
+    // Development: Use test key
+    return import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_publishable_key_here';
+  }
+};
+
+const stripePromise = loadStripe(getStripeKey());
 
 interface StripeProviderProps {
   children: React.ReactNode;

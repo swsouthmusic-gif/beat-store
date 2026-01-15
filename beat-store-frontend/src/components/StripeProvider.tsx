@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { loadStripe, type Appearance } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 
@@ -70,18 +71,31 @@ export const StripeProvider = ({ children, clientSecret }: StripeProviderProps) 
     return null; // Show a loader / skeleton instead (handled by parent component)
   }
 
+  // Memoize the Stripe promise to avoid recreating it on every render
+  const stripePromise = useMemo(() => {
+    try {
+      return getStripePromise();
+    } catch (error) {
+      console.error('Stripe initialization error:', error);
+      throw error;
+    }
+  }, []);
+
   const appearance: Appearance = {
     theme: 'night',
     labels: 'floating',
   };
 
-  const options = {
-    clientSecret,
-    appearance: appearance,
-  };
+  const options = useMemo(
+    () => ({
+      clientSecret,
+      appearance: appearance,
+    }),
+    [clientSecret],
+  );
 
   return (
-    <Elements stripe={getStripePromise()} options={options}>
+    <Elements stripe={stripePromise} options={options}>
       {children}
     </Elements>
   );

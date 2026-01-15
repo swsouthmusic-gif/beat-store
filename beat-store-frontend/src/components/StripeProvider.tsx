@@ -13,50 +13,22 @@ const getStripeKey = () => {
     : import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
   if (!key) {
-    const errorMessage = isProduction
-      ? `Missing Stripe publishable key for production. 
-      
-IMPORTANT: Vite embeds environment variables at BUILD TIME.
-
-To fix this:
-1. Go to Vercel Dashboard → Your Project → Settings → Environment Variables
-2. Add: VITE_STRIPE_PUBLISHABLE_KEY_LIVE = pk_live_your_live_key_here
-3. Add: VITE_ENVIRONMENT = production
-4. Go to Deployments tab and click "Redeploy" (or push a new commit)
-
-The app must be rebuilt after adding environment variables.`
-      : `Missing Stripe publishable key for development. Please set VITE_STRIPE_PUBLISHABLE_KEY in your .env file.`;
-    throw new Error(errorMessage);
+    throw new Error(
+      `Missing Stripe publishable key for ${isProduction ? 'production' : 'development'}`,
+    );
   }
 
-  // Safety check: Warn if production is using test key
+  // Optional: extra safety
   if (isProduction && key.startsWith('pk_test_')) {
     throw new Error(
-      `Production is using a test Stripe publishable key (pk_test_). 
-
-To fix:
-1. Go to Vercel Dashboard → Settings → Environment Variables
-2. Set VITE_STRIPE_PUBLISHABLE_KEY_LIVE to your live key (pk_live_...)
-3. Redeploy the application`,
+      'Production is using a test Stripe publishable key (pk_test_). Fix Vercel env vars.',
     );
   }
 
   return key;
 };
 
-// Lazy load Stripe to avoid errors at module load time
-let stripePromise: Promise<any> | null = null;
-const getStripePromise = () => {
-  if (!stripePromise) {
-    try {
-      stripePromise = loadStripe(getStripeKey());
-    } catch (error) {
-      console.error('Failed to initialize Stripe:', error);
-      throw error;
-    }
-  }
-  return stripePromise;
-};
+const stripePromise = loadStripe(getStripeKey());
 
 interface StripeProviderProps {
   children: React.ReactNode;
@@ -89,7 +61,7 @@ export const StripeProvider = ({
       };
 
   return (
-    <Elements stripe={getStripePromise()} options={options}>
+    <Elements stripe={stripePromise} options={options}>
       {children}
     </Elements>
   );

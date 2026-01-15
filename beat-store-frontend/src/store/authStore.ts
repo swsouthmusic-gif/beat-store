@@ -55,13 +55,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const profile = await userAPI.getProfile(token);
 
       // Transform backend profile to frontend format
-      const apiBaseUrl =
-        import.meta.env.VITE_API_URL ||
-        import.meta.env.VITE_API_BASE_URL ||
-        'http://localhost:8000/api';
-      const backendUrl = apiBaseUrl.replace('/api', ''); // Remove /api to get base backend URL
-      const avatarUrl = profile.profile?.photo ? `${backendUrl}${profile.profile.photo}` : null;
-      console.log('Profile photo URL:', profile.profile?.photo, 'Full URL:', avatarUrl);
+      // Photo URL is already a full URL from backend (S3 or local)
+      const avatarUrl = profile.profile?.photo || null;
 
       const authProfile: AuthUserProfile = {
         username: profile.username,
@@ -157,20 +152,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const updatedProfile = await userAPI.updateProfile(token, updateData);
 
       // Transform backend response to frontend format
-      const apiBaseUrl =
-        import.meta.env.VITE_API_URL ||
-        import.meta.env.VITE_API_BASE_URL ||
-        'http://localhost:8000/api';
-      const backendUrl = apiBaseUrl.replace('/api', ''); // Remove /api to get base backend URL
-      const avatarUrl = updatedProfile.profile?.photo
-        ? `${backendUrl}${updatedProfile.profile.photo}`
-        : null;
-      console.log(
-        'Updated profile photo URL:',
-        updatedProfile.profile?.photo,
-        'Full URL:',
-        avatarUrl,
-      );
+      // Photo URL is already a full URL from backend (S3 or local)
+      const avatarUrl = updatedProfile.profile?.photo || null;
 
       const authProfile: AuthUserProfile = {
         username: updatedProfile.username,

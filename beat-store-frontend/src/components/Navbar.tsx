@@ -244,7 +244,11 @@ const Navbar = ({ onLogout, onSignin, currentRoute, onNavigate }: NavbarProps) =
             <Avatar
               className="avatar"
               alt="User Avatar"
-              src={typeof userProfile?.avatar === 'string' ? userProfile.avatar : undefined}
+              src={
+                typeof userProfile?.avatar === 'string' && userProfile.avatar.trim() !== ''
+                  ? userProfile.avatar
+                  : undefined
+              }
             />
           </IconButton>
         ) : (

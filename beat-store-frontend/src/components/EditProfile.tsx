@@ -118,12 +118,20 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
       // Validate file type
       if (!file.type.startsWith('image/')) {
         show('Please select a valid image file', 'error');
+        // Reset input on error
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         return;
       }
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         show('Image size must be less than 5MB', 'error');
+        // Reset input on error
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
         return;
       }
 
@@ -188,6 +196,10 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
       show('Profile updated successfully!', 'success');
       // Reload profile to get updated data including avatar
       await loadProfile();
+      // Reset file input after successful save
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       onClose();
     } catch (error) {
       show('Failed to update profile. Please try again.', 'error');
@@ -198,6 +210,10 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
 
   const handleClose = (_e?: object, reason?: 'backdropClick' | 'escapeKeyDown') => {
     if (reason === 'backdropClick') return;
+    // Reset file input when closing
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     onClose();
   };
 
@@ -277,7 +293,7 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
                   src={
                     profile.avatar instanceof File
                       ? avatarPreviewUrl || undefined
-                      : typeof profile.avatar === 'string' && profile.avatar
+                      : typeof profile.avatar === 'string' && profile.avatar.trim() !== ''
                         ? profile.avatar
                         : undefined
                   }
@@ -313,6 +329,7 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
               </Box>
               <input
                 ref={fileInputRef}
+                key="avatar-file-input"
                 type="file"
                 accept="image/*"
                 onChange={handleAvatarChange}

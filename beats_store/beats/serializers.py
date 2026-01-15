@@ -93,10 +93,65 @@ class PurchaseSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    photo = serializers.SerializerMethodField()
+    
     class Meta:
         model = UserProfile
         fields = ['photo', 'bio', 'middle_initial', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
+    
+    def get_photo(self, obj):
+        """Get absolute URL for photo field (works for both local and S3)"""
+        if not obj.photo:
+            return None
+        
+        try:
+            # Try to get URL from storage backend (works for both local and S3)
+            if hasattr(obj.photo, 'url'):
+                url = obj.photo.url
+                
+                # Ensure HTTPS for S3 URLs (fix any HTTP S3 URLs)
+                if url.startswith('http://') and 'amazonaws.com' in url:
+                    url = url.replace('http://', 'https://')
+                
+                # Handle protocol-relative URLs
+                if url.startswith('//'):
+                    url = 'https:' + url
+                
+                # Handle relative URLs
+                elif url.startswith('/') and not url.startswith('http'):
+                    if settings.USE_S3:
+                        # S3: prepend MEDIA_URL (which is already the full S3 domain)
+                        url = urljoin(settings.MEDIA_URL, url.lstrip('/'))
+                    else:
+                        # Local: build absolute URL using request
+                        request = self.context.get('request')
+                        if request:
+                            url = request.build_absolute_uri(url)
+                        else:
+                            # Fallback: prepend MEDIA_URL
+                            url = urljoin(settings.MEDIA_URL, url.lstrip('/'))
+                
+                return url
+            elif hasattr(obj.photo, 'name') and obj.photo.name:
+                # Fallback: construct URL from name
+                if settings.USE_S3:
+                    # S3: MEDIA_URL is already the full domain
+                    return urljoin(settings.MEDIA_URL, obj.photo.name)
+                else:
+                    # Local: build absolute URL
+                    request = self.context.get('request')
+                    if request:
+                        return request.build_absolute_uri(settings.MEDIA_URL + obj.photo.name)
+                    else:
+                        return urljoin(settings.MEDIA_URL, obj.photo.name)
+        except Exception as e:
+            # Log error but don't break serialization
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error getting photo URL: {e}")
+        
+        return None
 
 
 class UserSerializer(serializers.ModelSerializer):

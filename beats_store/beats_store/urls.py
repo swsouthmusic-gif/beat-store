@@ -23,5 +23,6 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve media files in both development and production
+# In production, consider using cloud storage (S3, etc.) for better performance
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

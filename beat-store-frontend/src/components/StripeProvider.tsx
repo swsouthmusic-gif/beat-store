@@ -33,7 +33,7 @@ The app must be rebuilt after adding environment variables.`
   if (isProduction && key.startsWith('pk_test_')) {
     throw new Error(
       `Production is using a test Stripe publishable key (pk_test_). 
-      
+
 To fix:
 1. Go to Vercel Dashboard → Settings → Environment Variables
 2. Set VITE_STRIPE_PUBLISHABLE_KEY_LIVE to your live key (pk_live_...)
@@ -44,8 +44,19 @@ To fix:
   return key;
 };
 
-// Initialize Stripe
-const stripePromise = loadStripe(getStripeKey());
+// Lazy load Stripe to avoid errors at module load time
+let stripePromise: Promise<any> | null = null;
+const getStripePromise = () => {
+  if (!stripePromise) {
+    try {
+      stripePromise = loadStripe(getStripeKey());
+    } catch (error) {
+      console.error('Failed to initialize Stripe:', error);
+      throw error;
+    }
+  }
+  return stripePromise;
+};
 
 interface StripeProviderProps {
   children: React.ReactNode;
@@ -65,19 +76,20 @@ export const StripeProvider = ({
     labels: 'floating',
   };
 
-  // Only use clientSecret mode (PaymentIntent) - don't fall back to payment mode
-  // If clientSecret is not provided, don't render Elements
-  if (!clientSecret) {
-    return null;
-  }
-
-  const options = {
-    clientSecret,
-    appearance: appearance,
-  };
+  const options = clientSecret
+    ? {
+        clientSecret,
+        appearance: appearance,
+      }
+    : {
+        mode: 'payment' as const,
+        amount: amount ? Math.round(amount * 100) : 0,
+        currency,
+        appearance: appearance,
+      };
 
   return (
-    <Elements stripe={stripePromise} options={options}>
+    <Elements stripe={getStripePromise()} options={options}>
       {children}
     </Elements>
   );

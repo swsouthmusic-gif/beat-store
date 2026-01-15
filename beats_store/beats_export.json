@@ -1,0 +1,122 @@
+[
+  {
+    "model": "beats.beat",
+    "pk": 6,
+    "fields": {
+      "name": "In the Rover",
+      "genre": "Hip Hop",
+      "bpm": 180,
+      "scale": "E Major",
+      "price": "49.99",
+      "mp3_price": "49.99",
+      "wav_price": null,
+      "stems_price": null,
+      "created_at": "2025-12-18T21:31:00.173396+00:00",
+      "cover_art_name": null,
+      "snippet_mp3_name": null,
+      "mp3_file_name": "beats/in_the_rover_PwCzuXg.mp3",
+      "wav_file_name": null,
+      "stems_file_name": null
+    }
+  },
+  {
+    "model": "beats.beat",
+    "pk": 7,
+    "fields": {
+      "name": "Rendevouz",
+      "genre": "Dancehall",
+      "bpm": 96,
+      "scale": "A Minor",
+      "price": "49.99",
+      "mp3_price": "49.99",
+      "wav_price": null,
+      "stems_price": null,
+      "created_at": "2025-12-19T00:53:00.529503+00:00",
+      "cover_art_name": null,
+      "snippet_mp3_name": null,
+      "mp3_file_name": "beats/lets_rendevouz.mp3",
+      "wav_file_name": null,
+      "stems_file_name": null
+    }
+  },
+  {
+    "model": "beats.beat",
+    "pk": 8,
+    "fields": {
+      "name": "Mascara",
+      "genre": "Trap",
+      "bpm": 82,
+      "scale": "G Minor",
+      "price": "49.99",
+      "mp3_price": null,
+      "wav_price": null,
+      "stems_price": null,
+      "created_at": "2025-12-19T01:16:14.054749+00:00",
+      "cover_art_name": null,
+      "snippet_mp3_name": null,
+      "mp3_file_name": "beats/Mascara_.mp3",
+      "wav_file_name": null,
+      "stems_file_name": null
+    }
+  },
+  {
+    "model": "beats.beat",
+    "pk": 9,
+    "fields": {
+      "name": "Myke Myers",
+      "genre": "Reggaeton",
+      "bpm": 91,
+      "scale": "G Minor",
+      "price": "49.99",
+      "mp3_price": null,
+      "wav_price": null,
+      "stems_price": null,
+      "created_at": "2025-12-19T01:17:28.482793+00:00",
+      "cover_art_name": null,
+      "snippet_mp3_name": null,
+      "mp3_file_name": "beats/myke_myers_perreo_mix.mp3",
+      "wav_file_name": null,
+      "stems_file_name": null
+    }
+  },
+  {
+    "model": "beats.beat",
+    "pk": 10,
+    "fields": {
+      "name": "Odisea",
+      "genre": "Reggaeton",
+      "bpm": 88,
+      "scale": "E Minor",
+      "price": "49.99",
+      "mp3_price": null,
+      "wav_price": null,
+      "stems_price": null,
+      "created_at": "2025-12-19T01:18:44.110129+00:00",
+      "cover_art_name": null,
+      "snippet_mp3_name": null,
+      "mp3_file_name": "beats/odisea.mp3",
+      "wav_file_name": null,
+      "stems_file_name": null
+    }
+  },
+  {
+    "model": "beats.beat",
+    "pk": 11,
+    "fields": {
+      "name": "Jumper",
+      "genre": "Hip Hop",
+      "bpm": 96,
+      "scale": "G# Minor",
+      "price": "49.99",
+      "mp3_price": "49.99",
+      "wav_price": null,
+      "stems_price": null,
+      "created_at": "2025-12-19T01:22:19.774350+00:00",
+      "cover_art_name": null,
+      "snippet_mp3_name": null,
+      "mp3_file_name": "beats/roa_type_Jumper.mp3",
+      "wav_file_name": null,
+      "stems_file_name": null
+    }
+  }
+]

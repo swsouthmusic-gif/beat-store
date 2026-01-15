@@ -42,7 +42,8 @@
     align-items: center;
   }
   &:hover,
-  &.playing {
+  &.playing,
+  &.touched {
     .cover-container {
       .play-btn {
         // Only animate on larger screens where button is hidden by default
@@ -110,13 +111,25 @@
       z-index: 10;
       opacity: 0;
       box-shadow: 1px 4px 4px rgba(0, 0, 0, 0.2);
-      transition: background-color ease-in-out 0.3s;
+      transition:
+        background-color ease-in-out 0.3s,
+        opacity 0.3s ease-in-out;
       cursor: pointer;
 
-      // Always show play button on very small screens
+      // On mobile: only show when card is touched, playing, or hovered
       @media (max-width: 440px) {
-        opacity: 1;
+        opacity: 0;
         bottom: 12px;
+
+        // Show when card is touched
+        .beat-card.touched & {
+          opacity: 1;
+        }
+
+        // Show when beat is currently playing
+        .beat-card.playing & {
+          opacity: 1;
+        }
       }
 
       &:hover {

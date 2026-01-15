@@ -279,7 +279,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
         )}
 
         {/* Social Login Buttons */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+        {/* <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
           <Button
             variant="outlined"
             startIcon={<GoogleIcon />}
@@ -309,16 +309,16 @@ const AuthModal: React.FC<AuthModalProps> = ({
           >
             Continue with Facebook
           </Button>
-        </Box>
+        </Box> */}
 
         {/* Divider */}
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        {/* <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
           <Divider sx={{ flex: 1, borderColor: 'rgba(255, 255, 255, 0.12)' }} />
           <Typography sx={{ px: 2, color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.875rem' }}>
             or
           </Typography>
           <Divider sx={{ flex: 1, borderColor: 'rgba(255, 255, 255, 0.12)' }} />
-        </Box>
+        </Box> */}
 
         {/* LOGIN FORM */}
         {mode === 'login' && (
@@ -329,7 +329,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
             sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
           >
             <TextField
-              label="Username or Email"
+              label="Username"
               type="text"
               value={loginForm.username}
               onChange={e => setLoginForm(f => ({ ...f, username: e.target.value }))}

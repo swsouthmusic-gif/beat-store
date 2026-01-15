@@ -16,17 +16,17 @@ class Beat(models.Model):
     scale = models.CharField(max_length=50)
 
     cover_art = models.ImageField(upload_to="covers/", null=True, blank=True)
-    snippet_mp3 = models.FileField(upload_to="snippets/", null=True, blank=True)
+    snippet_mp3 = models.FileField(upload_to="mp3-snippets/", null=True, blank=True)
 
     price = models.DecimalField(max_digits=6, decimal_places=2)
 
-    wav_file = models.FileField(upload_to="downloads/wav/", null=True, blank=True)
+    wav_file = models.FileField(upload_to="beats/", null=True, blank=True)
     wav_price = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
 
-    mp3_file = models.FileField(upload_to="downloads/mp3/", null=True, blank=True)
+    mp3_file = models.FileField(upload_to="beats/", null=True, blank=True)
     mp3_price = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
 
-    stems_file = models.FileField(upload_to="downloads/stems/", null=True, blank=True)
+    stems_file = models.FileField(upload_to="beats/", null=True, blank=True)
     stems_price = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -153,16 +153,29 @@ def generate_snippet_from_mp3(sender, instance, created, **kwargs):
     
     try:
         from pydub import AudioSegment
+        import tempfile
         
-        # Get the path to the mp3 file
-        mp3_path = instance.mp3_file.path
-        
-        if not os.path.exists(mp3_path):
-            logger.warning(f"MP3 file not found at {mp3_path}")
-            return
-        
-        # Load the audio file
-        audio = AudioSegment.from_mp3(mp3_path)
+        # Handle both local and S3 storage
+        if hasattr(instance.mp3_file, 'path'):
+            # Local storage
+            mp3_path = instance.mp3_file.path
+            if not os.path.exists(mp3_path):
+                logger.warning(f"MP3 file not found at {mp3_path}")
+                return
+            # Load the audio file
+            audio = AudioSegment.from_mp3(mp3_path)
+        else:
+            # S3 storage - download to temp file first using storage backend
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
+                # Use storage backend to read the file
+                with instance.mp3_file.open('rb') as source_file:
+                    temp_file.write(source_file.read())
+                    temp_path = temp_file.name
+            
+            # Load the audio file
+            audio = AudioSegment.from_mp3(temp_path)
+            # Clean up temp file after loading
+            os.unlink(temp_path)
         
         # Get the first 30 seconds (30 * 1000 milliseconds)
         snippet_duration = 30 * 1000  # 30 seconds in milliseconds

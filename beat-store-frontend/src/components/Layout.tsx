@@ -2,6 +2,7 @@ import React, {
   useState,
   useEffect,
   useRef,
+  useCallback,
   isValidElement,
   cloneElement,
   type ReactElement,
@@ -90,18 +91,30 @@ const Layout = ({ children, currentRoute, onNavigate }: LayoutProps) => {
     setAuthModalOpen(true);
   };
 
-  const openAuth = (mode: AuthMode) => {
+  const openAuth = useCallback((mode: AuthMode) => {
     setAuthModalMode(mode);
     setAuthModalOpen(true);
-  };
+  }, []);
 
+  // Ensure onRequestAuth is always available to child components
   const injectedChild = isValidElement(children)
     ? cloneElement(children as ReactElement<any>, {
         onRequestAuth: openAuth,
         currentRoute,
         onNavigate,
       })
-    : children;
+    : Array.isArray(children)
+      ? children.map((child, index) =>
+          isValidElement(child)
+            ? cloneElement(child as ReactElement<any>, {
+                key: child.key || index,
+                onRequestAuth: openAuth,
+                currentRoute,
+                onNavigate,
+              })
+            : child,
+        )
+      : children;
 
   return (
     <Box

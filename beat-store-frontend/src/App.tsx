@@ -23,6 +23,14 @@ function App() {
     rehydrate();
   }, [rehydrate]);
 
+  // Set document title for production
+  useEffect(() => {
+    const isProduction = import.meta.env.PROD;
+    if (isProduction) {
+      document.title = 'SWSMG';
+    }
+  }, []);
+
   const handleSelectBeat = (beat: BeatType) => {
     setSelectedBeat(beat);
   };
@@ -61,11 +69,11 @@ function App() {
         </Box> */}
         <Layout currentRoute={currentRoute} onNavigate={handleNavigate}>
           {currentRoute === 'music-icon' && (
-          <BeatsPage
-            selectedBeat={selectedBeat}
-            setSelectedBeat={handleCloseDrawer}
-            onSelectBeat={handleSelectBeat}
-          />
+            <BeatsPage
+              selectedBeat={selectedBeat}
+              setSelectedBeat={handleCloseDrawer}
+              onSelectBeat={handleSelectBeat}
+            />
           )}
           {currentRoute === 'library' && <LibraryPage />}
         </Layout>

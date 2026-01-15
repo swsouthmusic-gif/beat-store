@@ -40,6 +40,7 @@ const BeatCard = ({
   onClick,
 }: BeatCardProps) => {
   const { currentBeatId, isPlaying, play, pause, setBeat } = usePlaybackStore();
+  const [isTouched, setIsTouched] = useState(false);
 
   const isCurrent = currentBeatId === id;
 
@@ -98,8 +99,23 @@ const BeatCard = ({
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    setIsTouched(true);
+  };
+
+  const handleTouchEnd = () => {
+    // Delay hiding to allow tap to register
+    setTimeout(() => setIsTouched(false), 300);
+  };
+
   return (
-    <Box className={`beat-card ${isCurrent && isPlaying ? 'playing' : ''}`} onClick={onClick}>
+    <Box
+      className={`beat-card ${isCurrent && isPlaying ? 'playing' : ''} ${isTouched ? 'touched' : ''}`}
+      onClick={onClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <Box className="cover-container">
         {cover_art ? (
           <img className="cover-art" src={cover_art} alt={name} />

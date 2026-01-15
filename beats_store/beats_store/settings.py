@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'storages',  # django-storages for S3
     'rest_framework',
     'corsheaders',
     'beats',
@@ -85,11 +86,24 @@ WSGI_APPLICATION = 'beats_store.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default=config('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
-    )
-}
+# For local development, use SQLite by default
+# For production, use DATABASE_URL from environment (Railway PostgreSQL)
+if DEBUG:
+    # Local development: always use SQLite, completely ignore DATABASE_URL
+    # This ensures Railway database URLs don't interfere with local development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+else:
+    # Production: use DATABASE_URL from environment (Railway PostgreSQL)
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=config('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
+        )
+    }
 
 
 # Password validation
@@ -155,8 +169,54 @@ JAZZMIN_UI_TWEAKS = {
     "sidebar": "sidebar-dark-primary",
 }
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# AWS S3 Configuration
+# Automatically use S3 if credentials are provided (works in both local dev and production)
+AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default=None)
+AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default=None)
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default=None)
+
+# Check if S3 should be used (if credentials are provided, use S3)
+USE_S3 = (
+    AWS_ACCESS_KEY_ID is not None and 
+    AWS_SECRET_ACCESS_KEY is not None and 
+    AWS_STORAGE_BUCKET_NAME is not None
+)
+
+if USE_S3:
+    # AWS S3 settings
+    AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='us-east-1')
+    AWS_S3_CUSTOM_DOMAIN = config('AWS_S3_CUSTOM_DOMAIN', default=None)
+    
+    # S3 settings
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_S3_VERIFY = True
+    
+    # Force HTTPS for S3 URLs
+    AWS_S3_USE_SSL = True
+    AWS_S3_USE_SIGV4 = True
+    AWS_S3_SECURE_URLS = True  # Force HTTPS in generated URLs
+    
+    # Media files (user uploads)
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    
+    # Generate correct S3 URL based on region
+    # For most regions: https://bucket-name.s3.region.amazonaws.com/
+    # For us-east-1: https://bucket-name.s3.amazonaws.com/ (no region in URL)
+    if AWS_S3_REGION_NAME == 'us-east-1':
+        s3_domain = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
+    else:
+        s3_domain = f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+    
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN or s3_domain}/'
+    MEDIA_ROOT = None  # Not used with S3
+else:
+    # Local file storage (fallback when S3 credentials not provided)
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = BASE_DIR / "media"
 
 # Production settings
 if not DEBUG:

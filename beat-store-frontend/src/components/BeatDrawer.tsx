@@ -838,7 +838,7 @@ const BeatDrawer = ({
                       </Typography>
 
                       {/* Social Login Buttons */}
-                      <Box
+                      {/* <Box
                         sx={{
                           display: 'flex',
                           flexDirection: 'row',
@@ -984,10 +984,10 @@ const BeatDrawer = ({
                         >
                           Facebook
                         </Button>
-                      </Box>
+                      </Box> */}
 
                       {/* Divider */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
+                      {/* <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
                         <Divider sx={{ flex: 1, borderColor: 'rgba(255, 255, 255, 0.12)' }} />
                         <Typography
                           sx={{ px: 2, color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.875rem' }}
@@ -995,7 +995,7 @@ const BeatDrawer = ({
                           or
                         </Typography>
                         <Divider sx={{ flex: 1, borderColor: 'rgba(255, 255, 255, 0.12)' }} />
-                      </Box>
+                      </Box> */}
 
                       <form
                         onSubmit={handleLogin}
@@ -1008,7 +1008,7 @@ const BeatDrawer = ({
                         }}
                       >
                         <TextField
-                          label="Username or Email"
+                          label="Username"
                           type="text"
                           value={loginForm.username}
                           onChange={e => setLoginForm(f => ({ ...f, username: e.target.value }))}

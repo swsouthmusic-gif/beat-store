@@ -1,12 +1,89 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.conf import settings
+from urllib.parse import urljoin
 from .models import Beat, Purchase, UserProfile
 
 class BeatSerializer(serializers.ModelSerializer):
+    # Ensure file fields return absolute URLs
+    cover_art = serializers.SerializerMethodField()
+    snippet_mp3 = serializers.SerializerMethodField()
+    mp3_file = serializers.SerializerMethodField()
+    wav_file = serializers.SerializerMethodField()
+    stems_file = serializers.SerializerMethodField()
+    
     class Meta:
         model = Beat
         fields = '__all__'
         read_only_fields = ['snippet_mp3']  # snippet_mp3 is auto-generated from mp3_file
+    
+    def _get_file_url(self, file_field):
+        """Helper method to get absolute URL for file fields"""
+        if not file_field:
+            return None
+        
+        try:
+            # Try to get URL from storage backend (works for both local and S3)
+            if hasattr(file_field, 'url'):
+                url = file_field.url
+                
+                # Ensure HTTPS for S3 URLs (fix any HTTP S3 URLs)
+                if url.startswith('http://') and 'amazonaws.com' in url:
+                    url = url.replace('http://', 'https://')
+                
+                # Handle protocol-relative URLs
+                if url.startswith('//'):
+                    url = 'https:' + url
+                
+                # Handle relative URLs
+                elif url.startswith('/') and not url.startswith('http'):
+                    if settings.USE_S3:
+                        # S3: prepend MEDIA_URL (which is already the full S3 domain)
+                        url = urljoin(settings.MEDIA_URL, url.lstrip('/'))
+                    else:
+                        # Local: build absolute URL using request
+                        request = self.context.get('request')
+                        if request:
+                            url = request.build_absolute_uri(url)
+                        else:
+                            # Fallback: prepend MEDIA_URL
+                            url = urljoin(settings.MEDIA_URL, url.lstrip('/'))
+                
+                return url
+            elif hasattr(file_field, 'name') and file_field.name:
+                # Fallback: construct URL from name
+                if settings.USE_S3:
+                    # S3: MEDIA_URL is already the full domain
+                    return urljoin(settings.MEDIA_URL, file_field.name)
+                else:
+                    # Local: build absolute URL
+                    request = self.context.get('request')
+                    if request:
+                        return request.build_absolute_uri(settings.MEDIA_URL + file_field.name)
+                    else:
+                        return urljoin(settings.MEDIA_URL, file_field.name)
+        except Exception as e:
+            # Log error but don't break serialization
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error getting file URL: {e}")
+        
+        return None
+    
+    def get_cover_art(self, obj):
+        return self._get_file_url(obj.cover_art)
+    
+    def get_snippet_mp3(self, obj):
+        return self._get_file_url(obj.snippet_mp3)
+    
+    def get_mp3_file(self, obj):
+        return self._get_file_url(obj.mp3_file)
+    
+    def get_wav_file(self, obj):
+        return self._get_file_url(obj.wav_file)
+    
+    def get_stems_file(self, obj):
+        return self._get_file_url(obj.stems_file)
 
 class PurchaseSerializer(serializers.ModelSerializer):
     class Meta:

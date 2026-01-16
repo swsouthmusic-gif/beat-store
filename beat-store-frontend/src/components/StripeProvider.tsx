@@ -1,6 +1,6 @@
+import React, { useMemo } from 'react';
 import { loadStripe, type Appearance } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
-import { useMemo } from 'react';
 
 // Initialize Stripe
 // Use live key in production (when VITE_ENVIRONMENT=production or in production build),
@@ -45,14 +45,37 @@ export const StripeProvider = ({ children, clientSecret }: StripeProviderProps) 
   };
 
   const options = useMemo(() => {
-    if (!clientSecret) return null;
-    return { clientSecret, appearance };
-  }, [clientSecret, appearance]);
+    if (clientSecret) {
+      return {
+        clientSecret,
+        appearance: appearance,
+      };
+    }
+    // Use payment mode with minimal amount when clientSecret not available
+    // This allows Elements to initialize and hooks to work
+    return {
+      mode: 'payment' as const,
+      amount: 1,
+      currency: 'usd',
+      appearance: appearance,
+    };
+  }, [clientSecret]);
 
-  if (!options) return null; // show loader
+  // Track transition using a ref to prevent re-render loops
+  // Only remount Elements once when clientSecret first appears
+  const hasTransitionedRef = React.useRef(false);
+  const [mountedKey, setMountedKey] = React.useState('payment-mode');
+
+  React.useEffect(() => {
+    // Only remount once when clientSecret first appears
+    if (clientSecret && !hasTransitionedRef.current) {
+      hasTransitionedRef.current = true;
+      setMountedKey('payment-intent-mode');
+    }
+  }, [clientSecret]);
 
   return (
-    <Elements stripe={stripePromise} options={options}>
+    <Elements key={mountedKey} stripe={stripePromise} options={options}>
       {children}
     </Elements>
   );

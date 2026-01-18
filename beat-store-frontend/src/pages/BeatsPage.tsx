@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 import { Box, Typography } from '@mui/material';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
@@ -6,6 +6,7 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import type { BeatType } from '@/store/beatApi';
 import { useGetBeatsQuery } from '@/store/beatApi';
 import { useAuthStore } from '@/store/authStore';
+import { useResponsive } from '@/hooks/useResponsive';
 
 import BeatRow from '@/components/BeatRow';
 import BeatCard from '@/components/BeatCard';
@@ -74,21 +75,7 @@ const BeatsPage = ({
   });
 
   // Responsive behavior for small screens
-  const [isSmallScreen, setIsSmallScreen] = useState(false);
-  const [isVerySmallScreen, setIsVerySmallScreen] = useState(false);
-
-  useEffect(() => {
-    const checkScreenSize = () => {
-      const width = window.innerWidth;
-      setIsSmallScreen(width <= 768); // iPad and smaller
-      setIsVerySmallScreen(width <= 424); // Very small screens
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
+  const { isSmallScreen, isVerySmallScreen } = useResponsive();
 
   if (isError) {
     console.error('Beats API Error:', error);

@@ -29,6 +29,7 @@ import type { BeatType } from '@/store/beatApi';
 import { usePlaybackStore } from '@/store/playBackStore';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/store/toastStore';
+import { useResponsive } from '@/hooks/useResponsive';
 
 import Waveform from '@/components/Waveform';
 import LegalAgreementStep from '@/components/LegalAgreementStep';
@@ -132,7 +133,7 @@ const BeatDrawer = ({
   onRequestAuth,
 }: BeatDrawerProps) => {
   const { mode } = useColorScheme();
-  const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const { isSmallScreen, isVerySmallScreen } = useResponsive();
 
   const [dominantColor, setDominantColor] = useState<string | null>(null);
   const [showAgreement, setShowAgreement] = useState(false);
@@ -330,19 +331,6 @@ const BeatDrawer = ({
       setDominantColor(rgbFallback);
     };
   }, [beat?.cover_art, beat, fallbackColor]);
-
-  // Screen size detection
-  useEffect(() => {
-    const checkScreenSize = () => {
-      const width = window.innerWidth;
-      setIsSmallScreen(width <= 768);
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
 
   // Show already purchased modal when purchase is detected, hide main drawer
   useEffect(() => {
@@ -633,7 +621,7 @@ const BeatDrawer = ({
                           lineHeight: 1.2,
                         }}
                       >
-                        {beat.name}
+                        {!isVerySmallScreen && beat.name}
                       </Box>
                     )}
                     <Box className="info">
@@ -1242,7 +1230,7 @@ const BeatDrawer = ({
                                 className="level-price"
                                 color="text.primary"
                                 sx={{
-                                  fontSize: isSmallScreen ? '0.8rem' : undefined,
+                                  fontSize: isVerySmallScreen ? '0.7rem' : isSmallScreen ? '0.8rem' : undefined,
                                   opacity: isDisabled ? 0.6 : 1,
                                 }}
                               >
@@ -1252,7 +1240,7 @@ const BeatDrawer = ({
                                 className="level-type"
                                 color="text.primary"
                                 sx={{
-                                  fontSize: isSmallScreen ? '0.7rem' : undefined,
+                                  fontSize: isVerySmallScreen ? '0.6rem' : isSmallScreen ? '0.7rem' : undefined,
                                   opacity: isDisabled ? 0.6 : 1,
                                 }}
                               >

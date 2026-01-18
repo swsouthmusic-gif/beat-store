@@ -231,7 +231,7 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
       slotProps={{
         backdrop: {
           style: {
-            background: 'rgba(0, 0, 0, 0.1)',
+            background: 'rgba(0, 0, 0, 0.3)',
             backdropFilter: 'blur(2px) saturate(160%)',
           },
         },
@@ -243,18 +243,13 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
           sx={{
             p: 2,
             borderRadius: '12px',
-            backdropFilter: 'blur(12px)',
+            backdropFilter: 'blur(24px)',
             display: 'flex',
             flexDirection: 'column',
             color: '#fff',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              inset: 0,
-              background: mode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(188, 188, 188, 0.2)',
-              borderRadius: '12px',
-              zIndex: 0,
-            },
+            background: mode === 'dark'
+              ? 'rgba(4, 4, 4, 0.6)'
+              : 'rgba(188, 188, 188, 0.6)',
             '& > :not(.no-positioning)': {
               position: 'relative',
               zIndex: 1,

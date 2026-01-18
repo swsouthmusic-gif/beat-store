@@ -1,6 +1,6 @@
 // /components/AudioPlayer.tsx
 import { useEffect, useRef, useMemo, useState } from 'react';
-import { Box, IconButton, Typography, Chip } from '@mui/material';
+import { Box, IconButton, Typography, Chip, useColorScheme } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
   PlayArrowRounded,
@@ -19,6 +19,7 @@ import { usePlaybackStore } from '@/store/playBackStore';
 import { useGetBeatsQuery } from '@/store/beatApi';
 import { genreColors } from '@/constants/genreColors';
 import { useWaveformStore } from '@/store/waveformStore';
+import { useResponsive } from '@/hooks/useResponsive';
 
 import '@/components/Style/audioPlayer.scss';
 
@@ -27,9 +28,10 @@ interface AudioPlayerProps {
 }
 
 const AudioPlayer = ({ onDownloadClick }: AudioPlayerProps) => {
+  const { mode } = useColorScheme();
   const audioRef = useRef<HTMLAudioElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
-  const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const { isSmallScreen, isVerySmallScreen } = useResponsive();
   const [dominantColor, setDominantColor] = useState<string | null>(null);
   const {
     audioUrl,
@@ -49,19 +51,6 @@ const AudioPlayer = ({ onDownloadClick }: AudioPlayerProps) => {
   const { setCurrentBeat } = useWaveformStore();
 
   const { data: beats = [] } = useGetBeatsQuery();
-
-  // Screen size detection
-  useEffect(() => {
-    const checkScreenSize = () => {
-      const width = window.innerWidth;
-      setIsSmallScreen(width <= 768);
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
 
   // Set beats in store when they're loaded
   useEffect(() => {
@@ -274,12 +263,25 @@ const AudioPlayer = ({ onDownloadClick }: AudioPlayerProps) => {
       <audio ref={audioRef} id="global-audio" />
 
       {/* Global Audio Player Container */}
-      <Box ref={playerContainerRef} className="audio-player">
+      <Box
+        ref={playerContainerRef}
+        className="audio-player"
+        sx={{
+          background: dominantColor
+            ? `linear-gradient(to right, ${alpha(darkenColor(dominantColor, 0.8), 1)} 20%, rgba(var(--beat-palette-background-defaultChannel) / .5) 100%)`
+            : mode === 'dark'
+              ? 'rgba(0, 0, 0, 0.2)'
+              : 'rgba(188, 188, 188, 0.2)',
+          borderRadius: '100px',
+          overflow: 'hidden',
+        }}
+      >
         {/* Beat Info */}
         <Box
           className="beat-info"
           sx={{
-            minWidth: isSmallScreen ? 'auto' : '180px',
+            minWidth: isSmallScreen ? 0 : '180px',
+            flexShrink: 0,
           }}
         >
           {currentBeat.cover_art ? (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Chip,
@@ -25,6 +25,7 @@ import {
   Close,
   ArrowBackRounded,
 } from '@mui/icons-material';
+import { useResponsive } from '@/hooks/useResponsive';
 import '@/components/Style/beatheaderbar.scss';
 
 export type BeatFiltersType = {
@@ -68,25 +69,11 @@ const BeatFilters = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [sortAnchorEl, setSortAnchorEl] = useState<null | HTMLElement>(null);
-  const [isSmallScreen, setIsSmallScreen] = useState(false);
-  const [isVerySmallScreen, setIsVerySmallScreen] = useState(false);
+  const { isSmallScreen, isVerySmallScreen } = useResponsive();
   const [filtersPopoverAnchor, setFiltersPopoverAnchor] = useState<null | HTMLElement>(null);
   const [activeFilterInModal, setActiveFilterInModal] = useState<string | null>(null);
 
   const [tempFilters, setTempFilters] = useState<BeatFiltersType>(filters);
-
-  useEffect(() => {
-    const checkScreenSize = () => {
-      const width = window.innerWidth;
-      setIsSmallScreen(width <= 768);
-      setIsVerySmallScreen(width <= 424);
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
 
   const handleOpen = (event: React.MouseEvent<HTMLElement>, filter: string) => {
     if (isVerySmallScreen && filtersPopoverOpen) {
@@ -189,10 +176,9 @@ const BeatFilters = ({
             size="small"
             sx={{
               padding: '4px',
-              color:
-                isVerySmallScreen && hasActiveFilters
-                  ? 'var(--beat-palette-primary-main)'
-                  : 'var(--beat-palette-text-secondary)',
+              color: isVerySmallScreen
+                ? 'var(--beat-palette-primary-main)'
+                : 'var(--beat-palette-text-secondary)',
               backgroundColor:
                 isVerySmallScreen && hasActiveFilters
                   ? 'rgba(var(--beat-palette-primary-mainChannel) / 0.2)'
@@ -202,7 +188,7 @@ const BeatFilters = ({
                   ? 'transparent'
                   : isVerySmallScreen && hasActiveFilters
                     ? 'rgba(var(--beat-palette-primary-mainChannel) / 0.3)'
-                    : 'rgba(var(--beat-palette-action-activeChannel) / var(--beat-palette-action-hoverOpacity))',
+                    : 'rgba(var(--beat-palette-primary-mainChannel) / 0.1)',
               },
               transition: 'all 0.2s ease-in-out',
               cursor: isVerySmallScreen ? 'pointer' : 'default',

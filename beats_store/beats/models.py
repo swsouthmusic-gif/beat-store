@@ -16,7 +16,7 @@ class Beat(models.Model):
     scale = models.CharField(max_length=50)
 
     cover_art = models.ImageField(upload_to="covers/", null=True, blank=True)
-    snippet_mp3 = models.FileField(upload_to="mp3-snippets/", null=True, blank=True)
+    snippet_mp3 = models.FileField(upload_to="preview-snippet/", null=True, blank=True)
 
     price = models.DecimalField(max_digits=6, decimal_places=2)
 
@@ -114,11 +114,11 @@ def track_mp3_file_change(sender, instance, **kwargs):
             # Check if mp3_file changed
             if old_instance.mp3_file != instance.mp3_file:
                 instance._mp3_file_changed = True
-                # If snippet was auto-generated (starts with 'snippet_'), mark it for regeneration
-                if old_instance.snippet_mp3:
-                    snippet_name = os.path.basename(old_instance.snippet_mp3.name)
-                    if snippet_name.startswith('snippet_'):
-                        instance._should_regenerate_snippet = True
+            # If snippet was auto-generated (ends with '_preview.mp3'), mark it for regeneration
+            if old_instance.snippet_mp3:
+                snippet_name = os.path.basename(old_instance.snippet_mp3.name)
+                if snippet_name.endswith('_preview.mp3'):
+                    instance._should_regenerate_snippet = True
         except Beat.DoesNotExist:
             pass
 
@@ -182,9 +182,11 @@ def generate_snippet_from_mp3(sender, instance, created, **kwargs):
         # Ensure we don't exceed the audio length
         snippet = audio[:min(snippet_duration, len(audio))]
         
-        # Generate snippet filename
+        # Generate snippet filename - use the beat name or ID for uniqueness
         mp3_filename = os.path.basename(instance.mp3_file.name)
-        snippet_filename = f"snippet_{mp3_filename}"
+        # Remove extension from mp3 filename and use beat name/ID for snippet
+        mp3_name_without_ext = os.path.splitext(mp3_filename)[0]
+        snippet_filename = f"{mp3_name_without_ext}_preview.mp3"
         
         # Export snippet to a temporary file
         import tempfile
@@ -200,7 +202,8 @@ def generate_snippet_from_mp3(sender, instance, created, **kwargs):
         if instance.snippet_mp3 and hasattr(instance, '_should_regenerate_snippet'):
             instance.snippet_mp3.delete(save=False)
         
-        # Save to snippet_mp3 field
+        # Save to snippet_mp3 field - this will automatically use "preview-snippet/" folder
+        # due to upload_to="preview-snippet/" in the model field definition
         instance.snippet_mp3.save(
             snippet_filename,
             ContentFile(snippet_content),

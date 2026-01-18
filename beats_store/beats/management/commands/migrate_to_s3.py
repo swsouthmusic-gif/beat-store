@@ -87,7 +87,7 @@ class Command(BaseCommand):
             # Files to migrate with their field names and expected S3 folders
             files_to_migrate = [
                 ('cover_art', 'covers/'),
-                ('snippet_mp3', 'mp3-snippets/'),
+                ('snippet_mp3', 'preview-snippet/'),
                 ('mp3_file', 'beats/'),
                 ('wav_file', 'beats/'),
                 ('stems_file', 'beats/'),
@@ -154,7 +154,7 @@ class Command(BaseCommand):
                         if default_storage.exists(file_field.name):
                             file_exists_in_s3 = True
                             # Also check if it's in the correct folder (not old paths like downloads/mp3/)
-                            if file_field.name.startswith('beats/') or file_field.name.startswith('covers/') or file_field.name.startswith('mp3-snippets/'):
+                            if file_field.name.startswith('beats/') or file_field.name.startswith('covers/') or file_field.name.startswith('preview-snippet/') or file_field.name.startswith('mp3-snippets/'):
                                 self.stdout.write(f'  ✓ {field_name}: Already in S3 at correct location, skipping')
                                 continue
                             else:
@@ -174,7 +174,7 @@ class Command(BaseCommand):
                         )
                 
                 # If file exists in S3 at correct location, skip
-                if file_exists_in_s3 and (file_field.name.startswith('beats/') or file_field.name.startswith('covers/') or file_field.name.startswith('mp3-snippets/')):
+                if file_exists_in_s3 and (file_field.name.startswith('beats/') or file_field.name.startswith('covers/') or file_field.name.startswith('preview-snippet/') or file_field.name.startswith('mp3-snippets/')):
                     continue
                 
                 # Check if we have a local file to migrate
@@ -221,7 +221,7 @@ class Command(BaseCommand):
                                 pass
                         
                         # Use the field's save method which will handle upload_to automatically
-                        # This ensures files go to the correct folders (beats/, covers/, mp3-snippets/)
+                        # This ensures files go to the correct folders (beats/, covers/, preview-snippet/)
                         getattr(beat, field_name).save(filename, django_file, save=False)
                         
                         self.stdout.write(

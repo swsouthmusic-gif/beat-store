@@ -91,7 +91,7 @@ const Waveform = ({
         // Use the duration from the store if available, otherwise use wavesurfer's duration
         const targetDuration = duration || wavesurferDuration;
         wavesurfer.seekTo(currentTime / targetDuration);
-      } catch (error) {
+      } catch {
         // Ignore errors if wavesurfer is not ready
       }
     }
@@ -104,7 +104,7 @@ const Waveform = ({
 
     try {
       wavesurfer.seekTo(0);
-    } catch (error) {
+    } catch {
       // Ignore errors
     }
   }, [isCurrent]);

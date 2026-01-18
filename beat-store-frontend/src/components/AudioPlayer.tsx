@@ -31,7 +31,7 @@ const AudioPlayer = ({ onDownloadClick }: AudioPlayerProps) => {
   const { mode } = useColorScheme();
   const audioRef = useRef<HTMLAudioElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
-  const { isSmallScreen, isVerySmallScreen } = useResponsive();
+  const { isSmallScreen } = useResponsive();
   const [dominantColor, setDominantColor] = useState<string | null>(null);
   const {
     audioUrl,

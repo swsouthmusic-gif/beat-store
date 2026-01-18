@@ -484,7 +484,7 @@ const BeatDrawer = ({
     try {
       await login(loginForm.username, loginForm.password);
       show(`Welcome ${loginForm.username}`, 'success');
-    } catch (err) {
+    } catch {
       setLoginError('Invalid username or password');
     }
   };

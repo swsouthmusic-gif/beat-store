@@ -201,7 +201,7 @@ const EditProfile = ({ open, onClose }: EditProfileProps) => {
         fileInputRef.current.value = '';
       }
       onClose();
-    } catch (error) {
+    } catch {
       show('Failed to update profile. Please try again.', 'error');
     } finally {
       setIsLoading(false);

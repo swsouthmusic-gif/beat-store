@@ -19,6 +19,7 @@ import {
   PauseRounded,
   ArrowForward,
   ArrowBackRounded,
+  CheckCircle,
 } from '@mui/icons-material';
 import { alpha } from '@mui/material/styles';
 
@@ -124,6 +125,19 @@ const priceMap: Record<'mp3' | 'wav' | 'stems', keyof BeatType> = {
 
 const downloadTypes = ['mp3', 'wav', 'stems'] as const;
 
+/**
+ * Normalize scale display: capitalize "Major" and "Minor" while keeping the note as is
+ */
+const normalizeScaleDisplay = (scale: string): string => {
+  const parts = scale.split(' ');
+  if (parts.length < 2) return scale;
+  const [note, type] = parts;
+  const normalizedType = type.toLowerCase();
+  if (normalizedType === 'major') return `${note} Major`;
+  if (normalizedType === 'minor') return `${note} Minor`;
+  return scale;
+};
+
 const BeatDrawer = ({
   open,
   onClose,
@@ -177,6 +191,44 @@ const BeatDrawer = ({
       skip: !beat || !selectedDownloadType || !isLoggedIn || !open,
     },
   );
+
+  // Check purchase status for all download types to hide prices when purchased
+  const { data: mp3PurchaseCheck } = useCheckPurchaseQuery(
+    {
+      beatId: beat?.id ?? 0,
+      downloadType: 'mp3',
+    },
+    {
+      skip: !beat || !isLoggedIn || !open,
+    },
+  );
+
+  const { data: wavPurchaseCheck } = useCheckPurchaseQuery(
+    {
+      beatId: beat?.id ?? 0,
+      downloadType: 'wav',
+    },
+    {
+      skip: !beat || !isLoggedIn || !open,
+    },
+  );
+
+  const { data: stemsPurchaseCheck } = useCheckPurchaseQuery(
+    {
+      beatId: beat?.id ?? 0,
+      downloadType: 'stems',
+    },
+    {
+      skip: !beat || !isLoggedIn || !open,
+    },
+  );
+
+  // Create a map of purchase status for each download type
+  const purchaseStatusMap = {
+    mp3: mp3PurchaseCheck?.has_purchase === true,
+    wav: wavPurchaseCheck?.has_purchase === true,
+    stems: stemsPurchaseCheck?.has_purchase === true,
+  };
 
   const selectedLicense =
     selectedDownloadType && beat
@@ -650,7 +702,7 @@ const BeatDrawer = ({
                             fontSize: isSmallScreen ? '0.75rem' : undefined,
                           }}
                         >
-                          {beat.bpm} BPM • {beat.scale}
+                          {beat.bpm} BPM • {normalizeScaleDisplay(beat.scale)}
                         </Typography>
                       </Box>
                     </Box>
@@ -1148,7 +1200,7 @@ const BeatDrawer = ({
                               onRequestAuth?.('signup');
                             }}
                           >
-                            Don't have an account? Sign Up
+                            Sign Up
                           </Button>
                         </Box>
                       </form>
@@ -1184,7 +1236,7 @@ const BeatDrawer = ({
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
-                                justifyContent: 'center',
+                                justifyContent: 'flex-start',
                                 flex: '1 1 0',
                                 minWidth: 0,
 
@@ -1216,26 +1268,46 @@ const BeatDrawer = ({
                                     }),
                               }}
                             >
-                              <Typography
-                                className="level-name"
+                              <Box
                                 sx={{
-                                  color: isSelected ? `${levelColor}` : '#FFF',
-                                  fontSize: isSmallScreen ? '0.85rem' : undefined,
-                                  opacity: isDisabled ? 0.6 : 1,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  width: '100%',
+                                  gap: 0.5,
+                                  justifyContent: 'flex-start',
                                 }}
                               >
-                                {levelLabelMap[type]}
-                              </Typography>
-                              <Typography
-                                className="level-price"
-                                color="text.primary"
-                                sx={{
-                                  fontSize: isVerySmallScreen ? '0.7rem' : isSmallScreen ? '0.8rem' : undefined,
-                                  opacity: isDisabled ? 0.6 : 1,
-                                }}
-                              >
-                                {price}
-                              </Typography>
+                                {purchaseStatusMap[type] && (
+                                  <CheckCircle
+                                    sx={{
+                                      color: '#1db954',
+                                      fontSize: isSmallScreen ? '16px' : '18px',
+                                    }}
+                                  />
+                                )}
+                                <Typography
+                                  className="level-name"
+                                  sx={{
+                                    color: isSelected ? `${levelColor}` : '#FFF',
+                                    fontSize: purchaseStatusMap[type] ? '16px' : isSmallScreen ? '0.85rem' : undefined,
+                                    opacity: isDisabled ? 0.6 : 1,
+                                  }}
+                                >
+                                  {levelLabelMap[type]}
+                                </Typography>
+                              </Box>
+                              {!purchaseStatusMap[type] && (
+                                <Typography
+                                  className="level-price"
+                                  color="text.primary"
+                                  sx={{
+                                    fontSize: isVerySmallScreen ? '0.7rem' : isSmallScreen ? '0.8rem' : undefined,
+                                    opacity: isDisabled ? 0.6 : 1,
+                                  }}
+                                >
+                                  {price}
+                                </Typography>
+                              )}
                               <Typography
                                 className="level-type"
                                 color="text.primary"

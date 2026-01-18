@@ -258,9 +258,6 @@ class BeatViewSet(viewsets.ModelViewSet):
     def check_purchase(self, request, pk=None):
         """Check if user has already purchased this beat/download type"""
         beat = self.get_object()
-        # Print full object details for debugging
-        print(f"Beat object: {beat}")
-        print(f"Beat ID: {beat.id}, Name: {beat.name}, Type: {type(beat)}")
         download_type = request.query_params.get('type', 'mp3')
         
         # Validate download type

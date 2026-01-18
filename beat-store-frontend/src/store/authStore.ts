@@ -2,6 +2,8 @@
 import { create } from 'zustand';
 import { userAPI } from '@/api/users';
 import type { UpdateProfileData } from '@/api/users';
+import { usePlaybackStore } from './playBackStore';
+import { useWaveformStore } from './waveformStore';
 
 interface AuthUserProfile {
   username: string;
@@ -128,6 +130,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ token: null, isLoggedIn: false, userProfile: null });
     localStorage.removeItem('token');
     localStorage.removeItem('userProfile');
+    
+    // Clear all other stores and refresh the UI completely
+    if (typeof window !== 'undefined') {
+      // Clear playback store
+      usePlaybackStore.getState().pause();
+      usePlaybackStore.setState({
+        currentBeatId: null,
+        audioUrl: null,
+        isPlaying: false,
+        currentTime: 0,
+        duration: 0,
+        beats: [],
+        isAudioPlayerVisible: true,
+      });
+      
+      // Clear waveform store
+      useWaveformStore.setState({
+        instances: new Map(),
+        currentBeatId: null,
+        currentTime: 0,
+        duration: 0,
+      });
+      
+      // Reload the page to completely refresh the UI
+      window.location.reload();
+    }
   },
 
   updateProfile: async profileData => {
@@ -197,17 +225,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signup: async ({ email, username, password }) => {
     // Adjust endpoint to your backend (Django example path)
     const response = await fetch(
-      `${import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/signup/`,
+      `${import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'}/users/register/`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, username, password }),
+        body: JSON.stringify({ email, username, password, password_confirm: password }),
       },
     );
 
     if (!response.ok) {
-      const msg = await response.text().catch(() => null);
-      throw new Error(msg || 'Sign up failed.');
+      try {
+        const errorData = await response.json();
+        // Django REST Framework returns errors in format: { "field": ["error message"] }
+        // Check for username error first
+        if (errorData.username && Array.isArray(errorData.username) && errorData.username.length > 0) {
+          throw new Error(errorData.username[0]);
+        }
+        // Check for email error
+        if (errorData.email && Array.isArray(errorData.email) && errorData.email.length > 0) {
+          throw new Error(errorData.email[0]);
+        }
+        // Check for password error
+        if (errorData.password && Array.isArray(errorData.password) && errorData.password.length > 0) {
+          throw new Error(errorData.password[0]);
+        }
+        // Check for non-field errors
+        if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors) && errorData.non_field_errors.length > 0) {
+          throw new Error(errorData.non_field_errors[0]);
+        }
+        // Fallback to first error found
+        const firstError = Object.values(errorData)[0];
+        if (Array.isArray(firstError) && firstError.length > 0) {
+          throw new Error(firstError[0]);
+        }
+        throw new Error('Sign up failed. Please try again.');
+      } catch (err) {
+        if (err instanceof Error) {
+          throw err;
+        }
+        throw new Error('Sign up failed. Please try again.');
+      }
     }
 
     // Optional: auto-login after signup (uncomment if desired)

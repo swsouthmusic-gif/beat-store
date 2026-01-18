@@ -25,7 +25,7 @@ const Waveform = ({
   progressColor = '#ffffff',
   height = 60,
   barWidth = 2,
-  barGap = 2,
+  barGap = 1,
   barRadius = 4,
   onReady,
 }: WaveformProps) => {

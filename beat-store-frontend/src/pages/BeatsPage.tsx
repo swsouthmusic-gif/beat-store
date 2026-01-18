@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { Box, Typography } from '@mui/material';
+import CopyrightIcon from '@mui/icons-material/Copyright';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 
 import type { BeatType } from '@/store/beatApi';
@@ -55,9 +56,21 @@ const BeatsPage = ({
   const bpmValues = beats.map(b => b.bpm);
   const minBpm = bpmValues.length > 0 ? Math.min(...bpmValues) : 60;
   const maxBpm = bpmValues.length > 0 ? Math.max(...bpmValues) : 200;
-  const scaleTypes = Array.from(
-    new Set(beats.map(b => b.scale.split(' ')[1]).filter(Boolean)),
-  ).filter(s => ['Major', 'Minor'].includes(s));
+  // Extract scale types case-insensitively and normalize to "Major" and "Minor" for display
+  const scaleTypes: string[] = [];
+  const seenTypes = new Set<string>();
+  for (const beat of beats) {
+    const scalePart = beat.scale.split(' ')[1];
+    if (!scalePart) continue;
+    const lower = scalePart.toLowerCase();
+    if (lower === 'major' && !seenTypes.has('Major')) {
+      scaleTypes.push('Major');
+      seenTypes.add('Major');
+    } else if (lower === 'minor' && !seenTypes.has('Minor')) {
+      scaleTypes.push('Minor');
+      seenTypes.add('Minor');
+    }
+  }
 
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
     key: 'Name',
@@ -279,6 +292,10 @@ const BeatsPage = ({
               bottom: 0,
               left: 0,
               right: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 0.5,
               textAlign: 'center',
               fontSize: '12px',
               color: 'text.primary',
@@ -289,8 +306,13 @@ const BeatsPage = ({
               borderTop: '1px solid rgba(255, 255, 255, 0.1)',
             }}
           >
-            <Typography variant="body2" color="text.primary" sx={{ opacity: '.5' }}>
-              Small World South MG
+            <CopyrightIcon sx={{ fontSize: '16px', opacity: '.4' }} />
+            <Typography
+              variant="body2"
+              color="text.primary"
+              sx={{ opacity: '.4', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}
+            >
+              2026 Small World South Music Group
             </Typography>
           </Box>
         </Box>

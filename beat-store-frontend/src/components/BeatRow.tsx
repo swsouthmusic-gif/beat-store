@@ -9,8 +9,7 @@ import {
 
 import type { BeatType } from '@/store/beatApi';
 import { usePlaybackStore } from '@/store/playBackStore';
-import { useCheckPurchaseQuery } from '@/store/beatApi';
-import { useAuthStore } from '@/store/authStore';
+import { useBeatPurchaseCheck } from '@/hooks/useBeatPurchaseCheck';
 
 import Waveform from '@/components/Waveform';
 
@@ -36,6 +35,19 @@ const generateColorFromString = (str: string): string => {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
+/**
+ * Normalize scale display: capitalize "Major" and "Minor" while keeping the note as is
+ */
+const normalizeScaleDisplay = (scale: string): string => {
+  const parts = scale.split(' ');
+  if (parts.length < 2) return scale;
+  const [note, type] = parts;
+  const normalizedType = type.toLowerCase();
+  if (normalizedType === 'major') return `${note} Major`;
+  if (normalizedType === 'minor') return `${note} Minor`;
+  return scale;
+};
+
 interface BeatRowProps extends BeatType {
   onClick?: () => void;
 }
@@ -52,22 +64,11 @@ const BeatRow = ({
   onClick,
 }: BeatRowProps) => {
   const { currentBeatId, isPlaying, play, pause, setBeat } = usePlaybackStore();
-  const { isLoggedIn } = useAuthStore();
 
   const isCurrent = currentBeatId === id;
 
-  // Check if beat has been purchased (checking mp3 as default)
-  const { data: purchaseCheck } = useCheckPurchaseQuery(
-    {
-      beatId: id,
-      downloadType: 'mp3',
-    },
-    {
-      skip: !isLoggedIn,
-    },
-  );
-
-  const isPurchased = purchaseCheck?.has_purchase === true;
+  // Check if beat has been purchased (any download type)
+  const isPurchased = useBeatPurchaseCheck(id);
 
   // State for frontend-generated snippet URL
   const [frontendSnippetUrl, setFrontendSnippetUrl] = useState<string | null>(null);
@@ -166,41 +167,105 @@ const BeatRow = ({
   };
 
   return (
-    <Box className="beat-row" onClick={onClick}>
-      {cover_art ? (
-        <Avatar className="cover-art" src={cover_art} alt={name} />
-      ) : (
+    <Box className={`beat-row ${isPurchased ? 'purchased' : ''}`} onClick={onClick}>
+      <Box
+        className={`cover-art-container ${isCurrent && isPlaying ? 'is-playing' : ''}`}
+        onClick={e => {
+          e.stopPropagation();
+          handlePlayPause(e);
+        }}
+        sx={{
+          position: 'relative',
+          flexShrink: 0,
+          cursor: 'pointer',
+        }}
+      >
+        {cover_art ? (
+          <Avatar className="cover-art" src={cover_art} alt={name} />
+        ) : (
+          <Box
+            className="cover-art"
+            sx={{
+              backgroundColor: fallbackColor,
+              color: '#fff',
+              fontWeight: 600,
+              padding: '8px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+            }}
+          >
+            <Typography
+              variant="body1"
+              sx={{
+                fontSize: '12px',
+                textShadow: '2px 2px 8px rgba(0, 0, 0, 0.4)',
+              }}
+            >
+              {name}
+            </Typography>
+          </Box>
+        )}
+        {/* Dark overlay on hover or when playing */}
         <Box
-          className="cover-art"
+          className="cover-art-overlay"
           sx={{
-            backgroundColor: fallbackColor,
-            color: '#fff',
-            fontWeight: 600,
-            padding: '8px 16px',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            borderRadius: '100px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            textAlign: 'center',
+            opacity: isCurrent && isPlaying ? 1 : 0,
+            transition: 'opacity 0.2s ease-in-out, background-color 0.2s ease-in-out',
+            pointerEvents: 'none',
+          }}
+        />
+        {/* Play button over cover art */}
+        <IconButton
+          className="play-btn-overlay"
+          onClick={e => {
+            e.stopPropagation();
+            handlePlayPause(e);
+          }}
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: 'transparent',
+            width: '40px',
+            height: '40px',
+            opacity: isCurrent && isPlaying ? 1 : 0,
+            transition: 'opacity 0.2s ease-in-out',
+            pointerEvents: isCurrent && isPlaying ? 'auto' : 'none',
+            '&:hover': {
+              backgroundColor: 'transparent',
+            },
+            '& .MuiSvgIcon-root': {
+              color: '#fff',
+            },
           }}
         >
-          <Typography
-            variant="body1"
-            sx={{
-              fontSize: '12px',
-              textShadow: '2px 2px 8px rgba(0, 0, 0, 0.4)',
-            }}
-          >
-            {name}
-          </Typography>
-        </Box>
-      )}
+          {isCurrent && isPlaying ? (
+            <PauseRounded sx={{ fontSize: '36px', color: '#fff' }} />
+          ) : (
+            <PlayArrowRounded sx={{ fontSize: '36px', color: '#fff' }} />
+          )}
+        </IconButton>
+      </Box>
 
       <Box className="info">
         <Typography className="beat-name" sx={{ fontSize: '16px' }}>
           {name}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {bpm}bpm • {scale}
+          {bpm}bpm • {normalizeScaleDisplay(scale)}
         </Typography>
         <Box className="meta-info">
           <Chip
@@ -261,19 +326,6 @@ const BeatRow = ({
         ) : (
           <FileDownloadRounded className="download-icon" />
         )}
-        <IconButton
-          className="play-btn"
-          onClick={e => {
-            e.stopPropagation();
-            handlePlayPause(e);
-          }}
-        >
-          {isCurrent && isPlaying ? (
-            <PauseRounded sx={{ fontSize: '36px', color: '#000' }} />
-          ) : (
-            <PlayArrowRounded sx={{ fontSize: '36px', color: '#000' }} />
-          )}
-        </IconButton>
       </Box>
     </Box>
   );

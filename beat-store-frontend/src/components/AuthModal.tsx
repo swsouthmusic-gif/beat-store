@@ -36,20 +36,24 @@ const AuthModal: React.FC<AuthModalProps> = ({
   onClose,
   onLogin,
   onSignUp,
+  onForgotPassword,
   initialMode = 'login',
 }) => {
   const [mode, setMode] = React.useState<AuthMode>(initialMode);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
   // Forms
   const [loginForm, setLoginForm] = React.useState({ username: '', password: '' });
   const [signUpForm, setSignUpForm] = React.useState({ email: '', username: '', password: '' });
+  const [forgotPasswordForm, setForgotPasswordForm] = React.useState({ email: '' });
 
   React.useEffect(() => {
     if (!open) return;
     setMode(initialMode);
     setError(null);
+    setSuccessMessage(null);
     setLoading(false);
   }, [open, initialMode]);
 
@@ -100,6 +104,29 @@ const AuthModal: React.FC<AuthModalProps> = ({
       setError(null);
     } catch (err: any) {
       setError(err?.message || 'Sign up failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitForgotPassword = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    resetErrors();
+    setSuccessMessage(null);
+
+    const { email } = forgotPasswordForm;
+    if (!validateEmail(email)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await (onForgotPassword?.({ email: email.trim() }) ?? Promise.resolve());
+      setSuccessMessage('Password reset email sent! Check your inbox.');
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to send password reset email. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -216,10 +243,18 @@ const AuthModal: React.FC<AuthModalProps> = ({
         {/* Header */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Typography id="auth-modal-title" variant="h4" sx={titleSx}>
-            {mode === 'login' ? 'Welcome back' : 'Create account'}
+            {mode === 'login'
+              ? 'Welcome back'
+              : mode === 'signup'
+                ? 'Create account'
+                : 'Reset password'}
           </Typography>
           <Typography id="auth-modal-description" variant="body2" sx={subtitleSx}>
-            {mode === 'login' ? 'Sign in to your account to continue' : 'Join us to get started'}
+            {mode === 'login'
+              ? 'Sign in to your account to continue'
+              : mode === 'signup'
+                ? 'Join us to get started'
+                : 'Enter your email to receive a password reset link'}
           </Typography>
         </Box>
 
@@ -238,6 +273,24 @@ const AuthModal: React.FC<AuthModalProps> = ({
             }}
           >
             {error}
+          </Box>
+        )}
+
+        {/* Success Message */}
+        {successMessage && (
+          <Box
+            sx={{
+              mb: 3,
+              p: 2,
+              borderRadius: '8px',
+              bgcolor: 'rgba(34, 197, 94, 0.1)',
+              border: '1px solid rgba(34, 197, 94, 0.2)',
+              color: '#86efac',
+              fontSize: '0.875rem',
+              textAlign: 'center' as const,
+            }}
+          >
+            {successMessage}
           </Box>
         )}
 
@@ -314,7 +367,25 @@ const AuthModal: React.FC<AuthModalProps> = ({
               {loading ? <CircularProgress size={20} sx={{ color: '#000' }} /> : 'Sign In'}
             </Button>
 
-            <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mt: 2,
+                width: '100%',
+              }}
+            >
+              <Button
+                variant="text"
+                sx={linkButtonSx}
+                onClick={() => {
+                  resetErrors();
+                  setMode('forgot');
+                }}
+              >
+                Forgot Password?
+              </Button>
               <Button
                 variant="text"
                 sx={linkButtonSx}
@@ -323,7 +394,7 @@ const AuthModal: React.FC<AuthModalProps> = ({
                   setMode('signup');
                 }}
               >
-                Don't have an account? Sign up
+                Sign up
               </Button>
             </Box>
           </Box>
@@ -379,6 +450,44 @@ const AuthModal: React.FC<AuthModalProps> = ({
                 }}
               >
                 Already have an account? Sign in
+              </Button>
+            </Box>
+          </Box>
+        )}
+
+        {/* FORGOT PASSWORD FORM */}
+        {mode === 'forgot' && (
+          <Box
+            component="form"
+            onSubmit={handleSubmitForgotPassword}
+            noValidate
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          >
+            <TextField
+              label="Email"
+              type="email"
+              value={forgotPasswordForm.email}
+              onChange={e => setForgotPasswordForm((f: { email: string }) => ({ ...f, email: e.target.value }))}
+              required
+              autoComplete="email"
+              sx={fieldSx}
+            />
+
+            <Button type="submit" variant="contained" disabled={loading} sx={primaryButtonSx}>
+              {loading ? <CircularProgress size={20} sx={{ color: '#000' }} /> : 'Send Reset Link'}
+            </Button>
+
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Button
+                variant="text"
+                sx={linkButtonSx}
+                onClick={() => {
+                  resetErrors();
+                  setSuccessMessage(null);
+                  setMode('login');
+                }}
+              >
+                Back to Sign In
               </Button>
             </Box>
           </Box>

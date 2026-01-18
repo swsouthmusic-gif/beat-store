@@ -9,6 +9,7 @@ import {
   SkipPreviousRounded,
   FileDownloadRounded,
   CloseRounded,
+  CheckCircle,
 } from '@mui/icons-material';
 
 // @ts-ignore
@@ -20,6 +21,7 @@ import { useGetBeatsQuery } from '@/store/beatApi';
 import { genreColors } from '@/constants/genreColors';
 import { useWaveformStore } from '@/store/waveformStore';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useBeatPurchaseCheck } from '@/hooks/useBeatPurchaseCheck';
 
 import '@/components/Style/audioPlayer.scss';
 
@@ -61,6 +63,9 @@ const AudioPlayer = ({ onDownloadClick }: AudioPlayerProps) => {
 
   // Get current beat info
   const currentBeat = beats.find(beat => beat.id === currentBeatId);
+
+  // Check if beat is purchased (any download type)
+  const isPurchased = useBeatPurchaseCheck(currentBeatId ?? 0);
 
   // Generate consistent random background color for fallback
   const fallbackColor = useMemo(() => {
@@ -381,9 +386,12 @@ const AudioPlayer = ({ onDownloadClick }: AudioPlayerProps) => {
         )}
         <Box className="actions" sx={{ display: 'flex' }}>
           <IconButton onClick={() => currentBeat && onDownloadClick?.(currentBeat)}>
-            <FileDownloadRounded className="download-icon" />
+            {isPurchased ? (
+              <CheckCircle className="check-icon" sx={{ color: '#1db954' }} />
+            ) : (
+              <FileDownloadRounded className="download-icon" />
+            )}
           </IconButton>
-          {/* Add a close icon button that hides the audio player */}
           <IconButton
             onClick={() => setIsAudioPlayerVisible(false)}
             className="close-btn"

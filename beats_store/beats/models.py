@@ -130,6 +130,12 @@ def generate_snippet_from_mp3(sender, instance, created, **kwargs):
     if hasattr(instance, '_updating_snippet'):
         return
     
+    # Skip snippet generation during migrations or data loading
+    # Check if we're in a management command context
+    import sys
+    if any('migrate' in arg or 'load_beats' in arg or 'migrate_to_s3' in arg for arg in sys.argv):
+        return
+    
     # Skip if mp3_file doesn't exist
     if not instance.mp3_file:
         return

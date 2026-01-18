@@ -21,8 +21,45 @@
   cursor: pointer;
   &:hover {
     background-color: var(--beat-palette-background-paper);
-    .beat-row-actions {
-      animation: fadeInSlide 0.5s ease-out forwards;
+    // Only animate beat-row-actions if not purchased (check icon should not animate)
+    &:not(.purchased) {
+      .beat-row-actions {
+        animation: fadeInSlide 0.5s ease-out forwards;
+      }
+    }
+    // When beat row is hovered, show softer overlay with play icon
+    .cover-art-overlay {
+      opacity: 1;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    .play-btn-overlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  .cover-art-container {
+    position: relative;
+    cursor: pointer;
+    
+    // When beat is playing, always show softer overlay with pause icon
+    &.is-playing {
+      .cover-art-overlay {
+        opacity: 1;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+      .play-btn-overlay {
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
+    
+    // When cover art is hovered, show darker overlay (overrides beat-row hover and playing state)
+    &:hover {
+      .cover-art-overlay {
+        opacity: 1;
+        background-color: rgba(0, 0, 0, 0.6) !important;
+      }
     }
   }
 
@@ -93,22 +130,13 @@
         opacity: 1;
       }
     }
-    .play-btn {
-      background-color: #ffc300;
-      width: 40px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 100px;
-      z-index: 10;
-      box-shadow: 1px 4px 4px rgba(0, 0, 0, 0.2);
-      transition: all ease-in-out 0.3s;
-      position: relative;
-      z-index: 10;
-      &:hover {
-        background-color: #ffdb29;
-      }
+  }
+
+  // Always show check icon when beat is purchased
+  &.purchased {
+    .beat-row-actions {
+      opacity: 1;
+      transform: translate(0, 0);
     }
   }
   .waveform {

@@ -1,9 +1,10 @@
 import { Box, Typography, Chip, IconButton } from '@mui/material';
-import { PlayArrowRounded, FileDownloadRounded, PauseRounded } from '@mui/icons-material';
+import { PlayArrowRounded, FileDownloadRounded, PauseRounded, CheckCircle } from '@mui/icons-material';
 import { useMemo, useEffect, useState, useRef } from 'react';
 
 import type { BeatType } from '@/store/beatApi';
 import { usePlaybackStore } from '@/store/playBackStore';
+import { useBeatPurchaseCheck } from '@/hooks/useBeatPurchaseCheck';
 
 import { genreColors } from '@/constants/genreColors';
 import { get30SecondSnippetUrl, releaseBlobUrl } from '@/utils/audioUtils';
@@ -43,6 +44,9 @@ const BeatCard = ({
   const [isTouched, setIsTouched] = useState(false);
 
   const isCurrent = currentBeatId === id;
+
+  // Check if beat has been purchased (any download type)
+  const isPurchased = useBeatPurchaseCheck(id);
 
   // State for frontend-generated snippet URL
   const [frontendSnippetUrl, setFrontendSnippetUrl] = useState<string | null>(null);
@@ -111,7 +115,7 @@ const BeatCard = ({
 
   return (
     <Box
-      className={`beat-card ${isCurrent && isPlaying ? 'playing' : ''} ${isTouched ? 'touched' : ''}`}
+      className={`beat-card ${isCurrent && isPlaying ? 'playing' : ''} ${isTouched ? 'touched' : ''} ${isPurchased ? 'purchased' : ''}`}
       onClick={onClick}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -171,7 +175,11 @@ const BeatCard = ({
             }}
           />
           <Box className="visibility-stuff">
-            <FileDownloadRounded className="download-icon" />
+            {isPurchased ? (
+              <CheckCircle className="check-icon" sx={{ color: '#1db954' }} />
+            ) : (
+              <FileDownloadRounded className="download-icon" />
+            )}
           </Box>
         </Box>
       </Box>

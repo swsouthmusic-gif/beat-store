@@ -7,11 +7,13 @@ import { useState, useEffect } from 'react';
 export const useResponsive = () => {
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [isVerySmallScreen, setIsVerySmallScreen] = useState(false);
+  const [isMediumScreen, setIsMediumScreen] = useState(false);
 
   useEffect(() => {
     const checkScreenSize = () => {
       const width = window.innerWidth;
-      setIsSmallScreen(width <= 1024);
+      setIsSmallScreen(width < 769);
+      setIsMediumScreen(width >= 769 && width <= 1024);
       setIsVerySmallScreen(width <= 480);
     };
 
@@ -24,5 +26,6 @@ export const useResponsive = () => {
   return {
     isSmallScreen,
     isVerySmallScreen,
+    isMediumScreen,
   };
 };

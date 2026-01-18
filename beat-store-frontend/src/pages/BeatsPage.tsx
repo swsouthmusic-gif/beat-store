@@ -88,7 +88,7 @@ const BeatsPage = ({
   });
 
   // Responsive behavior for small screens
-  const { isSmallScreen, isVerySmallScreen, isMediumScreen } = useResponsive();
+  const { isSmallScreen, isVerySmallScreen } = useResponsive();
 
   if (isError) {
     console.error('Beats API Error:', error);

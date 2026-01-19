@@ -104,13 +104,17 @@ class Command(BaseCommand):
             
             try:
                 # Create beat (without file fields - those should be in S3)
+                # Handle backward compatibility: if 'price' exists, use it as mp3_price fallback
+                mp3_price_value = fields.get('mp3_price')
+                if not mp3_price_value and fields.get('price'):
+                    mp3_price_value = fields.get('price')
+                
                 beat = Beat.objects.create(
                     name=beat_name,
                     genre=fields.get('genre', ''),
                     bpm=fields.get('bpm', 120),
                     scale=fields.get('scale', ''),
-                    price=Decimal(fields.get('price', '0.00')),
-                    mp3_price=Decimal(fields['mp3_price']) if fields.get('mp3_price') else None,
+                    mp3_price=Decimal(mp3_price_value) if mp3_price_value else Decimal('0.00'),
                     wav_price=Decimal(fields['wav_price']) if fields.get('wav_price') else None,
                     stems_price=Decimal(fields['stems_price']) if fields.get('stems_price') else None,
                 )

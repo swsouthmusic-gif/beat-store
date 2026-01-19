@@ -1447,11 +1447,6 @@ const BeatDrawer = ({
                           return;
                         }
                         if (showAgreement) {
-                          // Check if user has first_name and last_name
-                          if (!userProfile?.first_name?.trim() || !userProfile?.last_name?.trim()) {
-                            setShowAgreementError(true);
-                            return;
-                          }
                           if (!agreed) {
                             setShowAgreementError(true);
                             return;

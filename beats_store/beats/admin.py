@@ -3,10 +3,16 @@ from .models import Beat, Purchase, UserProfile, StripeWebhookEvent
 
 @admin.register(Beat)
 class BeatAdmin(admin.ModelAdmin):
-    list_display = ("name", "genre", "bpm", "price", "uploaded_by", "created_at")
+    list_display = ("name", "genre", "bpm", "mp3_price", "uploaded_by", "created_at")
     search_fields = ("name", "genre", "uploaded_by__username")
     list_filter = ("genre", "scale", "bpm", "uploaded_by")
     exclude = ("snippet_mp3",)  # Exclude snippet_mp3 from form - it's auto-generated from mp3_file
+    
+    def save_model(self, request, obj, form, change):
+        """Automatically set uploaded_by to the current user when creating a new beat"""
+        if not change:  # Creating a new beat
+            obj.uploaded_by = request.user
+        super().save_model(request, obj, form, change)
     
     def has_module_permission(self, request):
         """Allow staff and superusers to access Beat model"""

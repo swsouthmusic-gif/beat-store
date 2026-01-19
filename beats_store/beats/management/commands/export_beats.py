@@ -41,7 +41,7 @@ class Command(BaseCommand):
         # Export beats to JSON (excluding file fields - those are handled by migrate_to_s3)
         # We'll export the metadata, and files will be migrated separately
         data = serializers.serialize('json', beats, fields=(
-            'name', 'genre', 'bpm', 'scale', 'price',
+            'name', 'genre', 'bpm', 'scale',
             'mp3_price', 'wav_price', 'stems_price', 'created_at'
         ))
         
@@ -56,7 +56,6 @@ class Command(BaseCommand):
                     'genre': beat.genre,
                     'bpm': beat.bpm,
                     'scale': beat.scale,
-                    'price': str(beat.price),
                     'mp3_price': str(beat.mp3_price) if beat.mp3_price else None,
                     'wav_price': str(beat.wav_price) if beat.wav_price else None,
                     'stems_price': str(beat.stems_price) if beat.stems_price else None,

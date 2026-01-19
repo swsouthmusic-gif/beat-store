@@ -9,7 +9,7 @@ import {
   IconButton,
   Modal,
 } from '@mui/material';
-import { Edit, UnfoldMore, Close } from '@mui/icons-material';
+import { UnfoldMore, Close } from '@mui/icons-material';
 import { genreColors } from '@/constants/genreColors';
 import { levelLabelMap, levelColorMap, iconTypeMap } from '@/constants/licenseMaps';
 import type { BeatType } from '@/store/beatApi';
@@ -41,7 +41,6 @@ const LegalAgreementStep = ({
   selectedDownloadType,
   selectedLicense,
   playButton,
-  onEditProfile,
 }: LegalAgreementStepProps) => {
   const imgRef = useRef<HTMLImageElement>(null);
   const { userProfile } = useAuthStore();
@@ -298,56 +297,6 @@ const LegalAgreementStep = ({
         control={<Checkbox checked={agreed} onChange={e => setAgreed(e.target.checked)} />}
         label="I have read and agree to the terms above"
       />
-
-      {/* Signature Section */}
-      {fullName && (
-        <Box
-          sx={{
-            mt: 3,
-            mb: 2,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            gap: 1,
-          }}
-        >
-          <Typography variant="body2" sx={{ mb: 1, fontWeight: 500 }}>
-            Sign:
-          </Typography>
-          <Typography
-            variant="body1"
-            sx={{
-              fontStyle: 'italic',
-              fontFamily: 'cursive',
-              borderBottom: '1px solid',
-              borderColor: 'text.primary',
-              display: 'inline-block',
-              minWidth: '200px',
-              pb: 0.5,
-              paddingLeft: 1,
-              paddingRight: 1,
-              color: 'text.primary',
-            }}
-          >
-            {fullName}
-          </Typography>
-          {onEditProfile && (
-            <IconButton
-              size="small"
-              onClick={onEditProfile}
-              sx={{
-                color: 'text.primary',
-                opacity: 0.7,
-                '&:hover': {
-                  opacity: 1,
-                },
-              }}
-            >
-              <Edit fontSize="small" />
-            </IconButton>
-          )}
-        </Box>
-      )}
 
       {/* License Agreement PDF Modal */}
       <Modal

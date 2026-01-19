@@ -18,13 +18,11 @@ class Beat(models.Model):
     cover_art = models.ImageField(upload_to="covers/", null=True, blank=True)
     snippet_mp3 = models.FileField(upload_to="preview-snippet/", null=True, blank=True)
 
-    price = models.DecimalField(max_digits=6, decimal_places=2)
+    mp3_file = models.FileField(upload_to="beats/",)
+    mp3_price = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
 
     wav_file = models.FileField(upload_to="beats/", null=True, blank=True)
     wav_price = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
-
-    mp3_file = models.FileField(upload_to="beats/", null=True, blank=True)
-    mp3_price = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
 
     stems_file = models.FileField(upload_to="beats/", null=True, blank=True)
     stems_price = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)

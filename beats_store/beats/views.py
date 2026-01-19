@@ -12,7 +12,7 @@ import requests
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny, BasePermission
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
@@ -42,6 +42,22 @@ class OptionalJWTAuthentication(JWTAuthentication):
             # This allows the view to proceed with an unauthenticated user
             return None
 
+
+class IsStaffOrSuperuser(BasePermission):
+    """Permission class that allows only staff and superusers to perform write operations."""
+    
+    def has_permission(self, request, view):
+        """Check if user is staff or superuser for write operations"""
+        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return True  # Allow read operations for everyone
+        return request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)
+    
+    def has_object_permission(self, request, view, obj):
+        """Check if user is staff or superuser for object-level write operations"""
+        if request.method in ['GET', 'HEAD', 'OPTIONS']:
+            return True  # Allow read operations for everyone
+        return request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)
+
 class BeatViewSet(viewsets.ModelViewSet):
     queryset = Beat.objects.all().order_by('-created_at')
     serializer_class = BeatSerializer
@@ -56,7 +72,19 @@ class BeatViewSet(viewsets.ModelViewSet):
             return [IsAuthenticatedOrReadOnly()]
         if self.action in ["download", "purchase", "create_payment_intent", "confirm_payment", "check_purchase"]:  # custom actions
             return [IsAuthenticated()]
-        return super().get_permissions()
+        # For create, update, delete operations, require staff or superuser
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsStaffOrSuperuser()]
+        return [IsStaffOrSuperuser()]  # Default to staff/superuser for any other actions
+    
+    def create(self, request, *args, **kwargs):
+        """Override create to automatically set uploaded_by to the current user"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # Set uploaded_by to the current user
+        serializer.save(uploaded_by=request.user)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
     
     def list(self, request, *args, **kwargs):
         """Override list to handle filter validation errors gracefully"""

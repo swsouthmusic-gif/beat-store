@@ -218,6 +218,18 @@ else:
     MEDIA_URL = "/media/"
     MEDIA_ROOT = BASE_DIR / "media"
 
+# Session Configuration
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_AGE = 86400  # 24 hours
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_NAME = 'sessionid'
+SESSION_SAVE_EVERY_REQUEST = False
+
+# CSRF Configuration
+CSRF_COOKIE_HTTPONLY = False  # Must be False for JavaScript to access CSRF token
+CSRF_COOKIE_NAME = 'csrftoken'
+CSRF_USE_SESSIONS = False  # Use cookie-based CSRF tokens
+
 # Production settings
 if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
@@ -229,10 +241,16 @@ if not DEBUG:
     SECURE_REDIRECT_EXEMPT = []
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
     CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = 'Lax'
 else:
     # Disable SSL redirect for local development
     SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    CSRF_COOKIE_SECURE = False
+    CSRF_COOKIE_SAMESITE = 'Lax'
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',

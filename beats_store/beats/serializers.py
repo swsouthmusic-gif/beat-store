@@ -11,11 +11,16 @@ class BeatSerializer(serializers.ModelSerializer):
     mp3_file = serializers.SerializerMethodField()
     wav_file = serializers.SerializerMethodField()
     stems_file = serializers.SerializerMethodField()
+    uploaded_by_username = serializers.SerializerMethodField()
     
     class Meta:
         model = Beat
         fields = '__all__'
         read_only_fields = ['snippet_mp3']  # snippet_mp3 is auto-generated from mp3_file
+    
+    def get_uploaded_by_username(self, obj):
+        """Return the username of the user who uploaded the beat"""
+        return obj.uploaded_by.username if obj.uploaded_by else None
     
     def _get_file_url(self, file_field):
         """Helper method to get absolute URL for file fields"""
@@ -193,9 +198,29 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'password', 'password_confirm', 'first_name', 'last_name']
     
     def validate_username(self, value):
-        """Validate that username is unique"""
+        """Validate that username is unique (case-sensitive)"""
+        if not value:
+            raise serializers.ValidationError("Username is required.")
+        # Normalize: strip whitespace
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Username cannot be empty.")
+        # Check for existing username (case-sensitive)
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError("This username is already taken. Please choose another one.")
+        return value
+    
+    def validate_email(self, value):
+        """Validate that email is unique and properly formatted"""
+        if not value:
+            raise serializers.ValidationError("Email is required.")
+        # Normalize: strip whitespace and lowercase
+        value = value.strip().lower()
+        if not value:
+            raise serializers.ValidationError("Email cannot be empty.")
+        # Check for existing email (case-insensitive)
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("This email is already registered. Please use a different email or try logging in.")
         return value
     
     def validate(self, attrs):
@@ -205,7 +230,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         validated_data.pop('password_confirm')
-        user = User.objects.create_user(**validated_data)
-        # Create profile for new user
-        UserProfile.objects.create(user=user)
-        return user
+        try:
+            user = User.objects.create_user(**validated_data)
+            # Profile is automatically created by post_save signal, but use get_or_create as safety
+            UserProfile.objects.get_or_create(user=user)
+            return user
+        except Exception as e:
+            # If there's a database-level error (like unique constraint), provide a clearer message
+            error_msg = str(e).lower()
+            if 'unique' in error_msg or 'already exists' in error_msg:
+                if 'username' in error_msg:
+                    raise serializers.ValidationError({'username': ['This username is already taken. Please choose another one.']})
+                elif 'email' in error_msg:
+                    raise serializers.ValidationError({'email': ['This email is already registered. Please use a different email or try logging in.']})
+                else:
+                    raise serializers.ValidationError('A user with this information already exists. Please check your username and email.')
+            # Re-raise other exceptions
+            raise

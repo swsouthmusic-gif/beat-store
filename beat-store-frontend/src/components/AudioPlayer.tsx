@@ -35,6 +35,7 @@ const AudioPlayer = ({ onDownloadClick }: AudioPlayerProps) => {
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const { isSmallScreen } = useResponsive();
   const [dominantColor, setDominantColor] = useState<string | null>(null);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
   const {
     audioUrl,
     isPlaying,
@@ -152,6 +153,29 @@ const AudioPlayer = ({ onDownloadClick }: AudioPlayerProps) => {
       audio.pause();
     }
   }, [audioUrl, isPlaying]);
+
+  // Track audio duration when metadata loads
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleLoadedMetadata = () => {
+      if (audio.duration && isFinite(audio.duration)) {
+        setAudioDuration(audio.duration);
+      }
+    };
+
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+
+    // Also check if duration is already available
+    if (audio.duration && isFinite(audio.duration)) {
+      setAudioDuration(audio.duration);
+    }
+
+    return () => {
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [audioUrl]);
 
   // Handle audio end event - stop playback when snippet reaches the end
   useEffect(() => {
@@ -375,7 +399,7 @@ const AudioPlayer = ({ onDownloadClick }: AudioPlayerProps) => {
               <Box
                 className="progress-bar"
                 style={{
-                  width: `${(currentTime / 30) * 100}%`, // Assuming 30 seconds for snippets
+                  width: audioDuration > 0 ? `${(currentTime / audioDuration) * 100}%` : '0%',
                   background: dominantColor
                     ? `linear-gradient(to right, ${rgbStringToRgba(dominantColor, 1)} 0%, ${darkenColor(dominantColor, 0.5)} 100%)`
                     : undefined,

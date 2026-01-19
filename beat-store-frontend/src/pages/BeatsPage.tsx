@@ -184,10 +184,14 @@ const BeatsPage = ({
           overflowY: 'auto',
           overflowX: 'hidden',
           px: 3,
-          pt: isSmallScreen ? '140px' : '100px',
+          pt: isSmallScreen ? '132px' : '100px',
           pb: 2,
           mt: isSmallScreen ? '24px' : 0,
           position: 'relative',
+          width: '100%',
+          '@media (min-width: 769px)': {
+            width: 'calc(100% - 80px)',
+          },
         }}
       >
         <Box
@@ -320,7 +324,7 @@ const BeatsPage = ({
       <BeatDrawer
         open={Boolean(selectedBeat)}
         beat={selectedBeat}
-        onClose={() => setSelectedBeat(null)}
+        onClose={() => setSelectedBeat(null)} 
         selectedDownloadType={selectedDownloadTypes[selectedBeat?.id ?? -1] ?? null}
         setSelectedDownloadType={type => {
           if (selectedBeat) {
@@ -328,6 +332,7 @@ const BeatsPage = ({
           }
         }}
         onRequestAuth={onRequestAuth}
+        onNavigate={onNavigate}
       />
     </Box>
   );

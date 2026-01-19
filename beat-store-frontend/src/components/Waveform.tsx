@@ -109,7 +109,17 @@ const Waveform = ({
     }
   }, [isCurrent]);
 
-  return <div ref={containerRef} className="waveform" />;
+  return (
+    <div
+      ref={containerRef}
+      className="waveform"
+      style={{
+        width: '100%',
+        minWidth: 0,
+        overflow: 'hidden',
+      }}
+    />
+  );
 };
 
 export default React.memo(Waveform, (prev, next) => {

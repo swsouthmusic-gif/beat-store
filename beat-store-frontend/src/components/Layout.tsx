@@ -15,6 +15,7 @@ import Navbar from '@/components/Navbar';
 import { useAuthStore } from '@/store/authStore';
 import { useToastStore } from '@/store/toastStore';
 import { useGetBeatsQuery } from '@/store/beatApi';
+import { useResponsive } from '@/hooks/useResponsive';
 import AuthModal from '@/components/AuthModal';
 
 import desktopBackground from '@/assets/Desktop - 5.jpg';
@@ -173,6 +174,7 @@ const Layout = ({ children, currentRoute, onNavigate }: LayoutProps) => {
 
   const { show } = useToastStore();
   const { isLoading } = useGetBeatsQuery();
+  const { isSmallScreen } = useResponsive();
 
   // Minimum loading time state to ensure animation completes
   const [minLoadingTimeElapsed, setMinLoadingTimeElapsed] = useState(false);
@@ -370,11 +372,35 @@ const Layout = ({ children, currentRoute, onNavigate }: LayoutProps) => {
             position: 'relative',
             zIndex: 1,
             display: 'flex',
-            flexDirection: 'row',
+            flexDirection: 'column',
             width: '100%',
             minHeight: '100vh',
           }}
         >
+          {isSmallScreen && (
+            <Box
+              sx={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                zIndex: 1100,
+                px: 2,
+                pt: 2,
+                pb: 1,
+                backgroundColor: 'rgba(var(--beat-palette-background-defaultChannel) / 0.6)',
+                backdropFilter: 'blur(16px)',
+                borderRadius: '12px',
+              }}
+            >
+              <Navbar
+                onLogout={handleLogout}
+                onSignin={handleSignin}
+                currentRoute={currentRoute}
+                onNavigate={onNavigate}
+              />
+            </Box>
+          )}
           <Box
             sx={{
               display: { xs: 'none' },

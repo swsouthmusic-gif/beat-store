@@ -181,11 +181,21 @@ const BeatRow = ({
         }}
       >
         {cover_art ? (
-          <Avatar className="cover-art" src={cover_art} alt={name} />
+          <Avatar
+            className="cover-art"
+            src={cover_art}
+            alt={name}
+            sx={{
+              width: 24,
+              height: 24,
+            }}
+          />
         ) : (
           <Box
             className="cover-art"
             sx={{
+              width: 24,
+              height: 24,
               backgroundColor: fallbackColor,
               color: '#fff',
               fontWeight: 600,
@@ -305,6 +315,8 @@ const BeatRow = ({
         <Box
           sx={{
             width: '100%',
+            minWidth: 0,
+            overflow: 'hidden',
             opacity: isWaveformLoading ? 0 : 1,
             transition: 'opacity 0.5s ease-in-out',
           }}

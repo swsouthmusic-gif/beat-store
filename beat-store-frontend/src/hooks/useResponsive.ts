@@ -8,6 +8,7 @@ export const useResponsive = () => {
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [isVerySmallScreen, setIsVerySmallScreen] = useState(false);
   const [isMediumScreen, setIsMediumScreen] = useState(false);
+  const [isTabletOrSmaller, setIsTabletOrSmaller] = useState(false);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -15,6 +16,7 @@ export const useResponsive = () => {
       setIsSmallScreen(width < 769);
       setIsMediumScreen(width >= 769 && width <= 1024);
       setIsVerySmallScreen(width <= 480);
+      setIsTabletOrSmaller(width <= 1024);
     };
 
     checkScreenSize();
@@ -27,5 +29,6 @@ export const useResponsive = () => {
     isSmallScreen,
     isVerySmallScreen,
     isMediumScreen,
+    isTabletOrSmaller,
   };
 };

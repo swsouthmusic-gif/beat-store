@@ -7,6 +7,7 @@ import os
 import stripe
 import json
 import logging
+import requests
 
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
@@ -333,42 +334,62 @@ class BeatViewSet(viewsets.ModelViewSet):
         file_field = f'{download_type}_file'
         file_obj = getattr(beat, file_field, None)
         
-        if not file_obj:
+        if not file_obj or not file_obj.name:
             return Response(
                 {'error': f'{download_type.upper()} file not available'}, 
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Serve the file
-        file_path = file_obj.path
-        if not os.path.exists(file_path):
-            return Response(
-                {'error': 'File not found on server'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
+        # Set appropriate content type and file extension
+        if download_type == 'stems':
+            content_type = 'application/zip'
+            file_extension = 'zip'
+        elif download_type == 'mp3':
+            content_type = 'audio/mpeg'
+            file_extension = 'mp3'
+        elif download_type == 'wav':
+            content_type = 'audio/wav'
+            file_extension = 'wav'
+        else:
+            content_type = 'application/octet-stream'
+            file_extension = download_type
         
         try:
-            with open(file_path, 'rb') as f:
-                file_content = f.read()
-            
-            # Set appropriate content type and file extension
-            if download_type == 'stems':
-                content_type = 'application/zip'
-                file_extension = 'zip'
-            elif download_type == 'mp3':
-                content_type = 'audio/mpeg'
-                file_extension = 'mp3'
-            elif download_type == 'wav':
-                content_type = 'audio/wav'
-                file_extension = 'wav'
-            else:
-                content_type = 'application/octet-stream'
-                file_extension = download_type
+            # Check if storage backend supports .path (local storage)
+            try:
+                file_path = file_obj.path
+                if os.path.exists(file_path):
+                    # Local file storage
+                    with open(file_path, 'rb') as f:
+                        file_content = f.read()
+                else:
+                    return Response(
+                        {'error': 'File not found on server'}, 
+                        status=status.HTTP_404_NOT_FOUND
+                    )
+            except (NotImplementedError, AttributeError):
+                # S3 or other remote storage - download from URL
+                file_url = file_obj.url
+                # Ensure HTTPS for S3 URLs
+                if file_url.startswith('http://') and 'amazonaws.com' in file_url:
+                    file_url = file_url.replace('http://', 'https://')
+                
+                # Download file from URL
+                file_response = requests.get(file_url, timeout=30)
+                file_response.raise_for_status()
+                file_content = file_response.content
             
             response = HttpResponse(file_content, content_type=content_type)
             response['Content-Disposition'] = f'attachment; filename="{beat.name}_{download_type}.{file_extension}"'
             return response
+        except requests.RequestException as e:
+            logging.error(f'Error downloading file from URL: {str(e)}')
+            return Response(
+                {'error': f'Error downloading file: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         except Exception as e:
+            logging.error(f'Error reading file: {str(e)}')
             return Response(
                 {'error': f'Error reading file: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR

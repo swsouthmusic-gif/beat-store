@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { get30SecondSnippetUrl, releaseBlobUrl } from '@/utils/audioUtils';
+import { Icon } from '@iconify/react';
 
 import {
   Box,
@@ -53,6 +54,7 @@ interface BeatDrawerProps {
   selectedDownloadType: 'mp3' | 'wav' | 'stems' | null;
   setSelectedDownloadType: (type: 'mp3' | 'wav' | 'stems' | null) => void;
   onRequestAuth?: (mode: 'login' | 'forgot' | 'signup') => void;
+  onNavigate?: (route: 'music-icon' | 'library' | null) => void;
 }
 
 const toRgba = (color: string, alpha: number) => {
@@ -145,6 +147,7 @@ const BeatDrawer = ({
   selectedDownloadType,
   setSelectedDownloadType,
   onRequestAuth,
+  onNavigate,
 }: BeatDrawerProps) => {
   const { mode } = useColorScheme();
   const { isSmallScreen, isVerySmallScreen } = useResponsive();
@@ -765,6 +768,8 @@ const BeatDrawer = ({
                       <Box
                         sx={{
                           width: '100%',
+                          minWidth: 0,
+                          overflow: 'hidden',
                           opacity: isWaveformLoading ? 0 : 1,
                           transition: 'opacity 0.5s ease-in-out',
                         }}
@@ -1230,7 +1235,16 @@ const BeatDrawer = ({
                           return (
                             <Box
                               key={type}
-                              onClick={isDisabled ? undefined : () => setSelectedDownloadType(type)}
+                              onClick={
+                                isDisabled
+                                  ? undefined
+                                  : purchaseStatusMap[type]
+                                    ? () => {
+                                        onNavigate?.('library');
+                                        onClose();
+                                      }
+                                    : () => setSelectedDownloadType(type)
+                              }
                               className="level-box"
                               sx={{
                                 display: 'flex',
@@ -1253,6 +1267,13 @@ const BeatDrawer = ({
                                   : 'transparent',
                                 opacity: isDisabled ? 0.5 : 1,
                                 transition: 'all 0.2s ease-in-out',
+                                '& .library-link': {
+                                  opacity: 0,
+                                  transition: 'opacity 0.2s ease-in-out',
+                                },
+                                '&:hover .library-link': {
+                                  opacity: 1,
+                                },
                                 ...(isSelected
                                   ? {}
                                   : {
@@ -1318,6 +1339,38 @@ const BeatDrawer = ({
                               >
                                 {iconTypeMap[type].join(', ')}
                               </Typography>
+                              {purchaseStatusMap[type] && (
+                                <Box
+                                  className="library-link"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    onNavigate?.('library');
+                                    onClose();
+                                  }}
+                                  sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 0.5,
+                                    marginTop: '4px',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  <Icon
+                                    icon="fluent:library-20-filled"
+                                    width={14}
+                                    height={14}
+                                    style={{ opacity: 0.7 }}
+                                  />
+                                  <Typography
+                                    sx={{
+                                      fontSize: isVerySmallScreen ? '0.65rem' : isSmallScreen ? '0.75rem' : '0.8rem',
+                                      opacity: 0.7,
+                                    }}
+                                  >
+                                    Library
+                                  </Typography>
+                                </Box>
+                              )}
                             </Box>
                           );
                         })}

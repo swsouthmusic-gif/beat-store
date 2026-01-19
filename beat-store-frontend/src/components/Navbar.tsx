@@ -148,30 +148,23 @@ const Navbar = ({ onLogout, onSignin, currentRoute, onNavigate }: NavbarProps) =
             height={24}
           />
         </IconButton>
-        <Tooltip title="Library coming soon" arrow placement="right">
-          <span>
-            <IconButton
-              className={`nav-icon ${isLibraryPageActive ? 'active' : ''}`}
-              onClick={handleLibraryIconClick}
-              disabled
-              sx={{
-                opacity: 0.5,
-                cursor: 'not-allowed',
-                '&:hover': {
-                  opacity: 0.6,
-                },
-              }}
-            >
-              <Icon
-                icon={
-                  isLibraryPageActive ? 'fluent:library-20-filled' : 'fluent:library-20-regular'
-                }
-                width={24}
-                height={24}
-              />
-            </IconButton>
-          </span>
-        </Tooltip>
+        <IconButton
+          className={`nav-icon ${isLibraryPageActive ? 'active' : ''}`}
+          onClick={handleLibraryIconClick}
+          disabled={!isLoggedIn}
+          sx={{
+            opacity: isLoggedIn ? 1 : 0.5,
+            cursor: isLoggedIn ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <Icon
+            icon={
+              isLibraryPageActive ? 'fluent:library-20-filled' : 'fluent:library-20-regular'
+            }
+            width={24}
+            height={24}
+          />
+        </IconButton>
       </Box>
 
       {/* User profile avatar button at bottom */}

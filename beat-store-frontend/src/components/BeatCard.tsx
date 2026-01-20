@@ -122,7 +122,12 @@ const BeatCard = ({
     >
       <Box className="cover-container">
         {cover_art ? (
-          <img className="cover-art" src={cover_art} alt={name} />
+          <img 
+            className="cover-art" 
+            src={cover_art} 
+            alt={name}
+            style={{ width: '100%', height: '120px', objectFit: 'cover' }}
+          />
         ) : (
           <Box
             className="cover-art"

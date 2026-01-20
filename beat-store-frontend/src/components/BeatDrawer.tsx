@@ -654,7 +654,6 @@ const BeatDrawer = ({
                         ref={imgRef}
                         src={beat.cover_art ?? undefined}
                         alt={beat.name}
-                        crossOrigin="anonymous"
                         className="beat-cover-art"
                         style={isSmallScreen ? { transform: 'scale(0.9)' } : undefined}
                       />
